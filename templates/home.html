@@ -1,11 +1,49 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Pose Estimator Home</title>
-</head>
-<body>
-    <h1>Video Processing</h1>
-    <img src="{{ url_for('video_feed') }}">
-</body>
+<html>
+  <head>
+    <title>Live Video Feed</title>
+    <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+    <script src="//code.jquery.com/jquery-1.11.1.js"></script>
+    <script type="text/javascript">
+        $(document).ready(function() {
+            let video = document.querySelector("#videoElement");
+
+            if (navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: true })
+                    .then(function (stream) {
+                        video.srcObject = stream;
+                    })
+                    .catch(function (error) {
+                        console.log("Error accessing video stream: ", error);
+                    });
+            }
+
+            function capture() {
+                let canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                let imgDataUrl = canvas.toDataURL('image/jpeg');
+
+                $.ajax({
+                    type: 'POST',
+                    url: '/capture',
+                    data: { image: imgDataUrl },
+                    success: function(response) {
+                        console.log(response);
+                    }
+                });
+
+                setTimeout(capture, 1000);  // Capture a frame every second
+            }
+
+            capture();
+        });
+    </script>
+  </head>
+  <body>
+    <h1>Functional Movement Assessment</h1>
+    <video id="videoElement" autoplay></video>
+  </body>
 </html>

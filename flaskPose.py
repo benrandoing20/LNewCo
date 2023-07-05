@@ -11,9 +11,13 @@ from flask import Flask, jsonify, request, render_template, redirect, \
 # from wtforms.validators import DataRequired
 
 import numpy as np
+import base64
 import json
 import cv2
 import mediapipe as mp
+from PIL import Image
+import io
+
 
 import mediapipeFunctional
 
@@ -26,8 +30,6 @@ mp_drawing = mp.solutions.drawing_utils
 # Initialize MediaPipe Pose model
 mp_pose = mp.solutions.pose
 
-cap = cv2.VideoCapture(0)
-
 ############################################################################
 ########################## Flask Endpoints #################################
 ############################################################################
@@ -37,24 +39,26 @@ def index():
     return render_template('home.html')
 
 
-@app.route('/video_feed')
-def video_feed():
-    return Response(generate_frames(),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
+@app.route('/capture', methods=['POST'] )
+def capture():
+    image_data = request.form['image'].split(",")[1]
+    decoded_data = base64.b64decode(image_data)
+    image = Image.open(io.BytesIO(decoded_data))
+    image_np = np.array(image)
+
+    print(image_np.shape)
+
+    return 'Pose estimation completed.'
+    # generate_frame(frame)
 
 ############################################################################
 ########################## Helper Functions ################################
 ############################################################################
 
-def generate_frames():
+def generate_frame(frame):
     ## Setup mediapipe instance
     with mp_pose.Pose(min_detection_confidence=0.5,
                       min_tracking_confidence=0.5) as pose:
-        while cap.isOpened():
-            success, frame = cap.read()
-
-            if not success:
-                break
 
             # Recolor image to RGB
             image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -105,24 +109,24 @@ def generate_frames():
                 pass
 
             # Render detections
-            mp_drawing.draw_landmarks(image, results.pose_landmarks,
-                                      mp_pose.POSE_CONNECTIONS,
-                                      mp_drawing.DrawingSpec(color=(245, 117, 66),
-                                                             thickness=2,
-                                                             circle_radius=2),
-                                      mp_drawing.DrawingSpec(color=(245, 66, 230),
-                                                             thickness=2,
-                                                             circle_radius=2)
-                                  )
+            # mp_drawing.draw_landmarks(image, results.pose_landmarks,
+            #                           mp_pose.POSE_CONNECTIONS,
+            #                           mp_drawing.DrawingSpec(color=(245, 117, 66),
+            #                                                  thickness=2,
+            #                                                  circle_radius=2),
+            #                           mp_drawing.DrawingSpec(color=(245, 66, 230),
+            #                                                  thickness=2,
+            #                                                  circle_radius=2)
+            #                       )
 
 
             ret, buffer = cv2.imencode('.jpg', image)
             frame = buffer.tobytes()
-            yield (b'--frame\r\n'
+            return (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
-            if cv2.waitKey(10) & 0xFF == ord('q'):
-                break
+            # if cv2.waitKey(10) & 0xFF == ord('q'):
+            #     break
 
             # cap.release()
             # cv2.destroyAllWindows()
