@@ -62,20 +62,24 @@ def run():
 
 				angle_shank = calculate_angle_horz(knee, ankle)
 
-				# Visualize angle
-				cv2.putText(image, str(angle),
-				            tuple(np.multiply(elbow, [640, 480]).astype(int)),
+				# Visualize angle of trunk and shank on video wrt ground
+				cv2.putText(image, str(angle_trunk),
+				            tuple(np.multiply(hip, [640, 480]).astype(int)),
 				            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2,
-				            cv2.LINE_AA
-				            )
+				            cv2.LINE_AA)
+
+				cv2.putText(image, str(angle_shank),
+				            tuple(np.multiply(knee, [640, 480]).astype(int)),
+				            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2,
+				            cv2.LINE_AA)
 
 				# Curl counter logic
-				if angle > 160:
-					stage = "down"
-				if angle < 30 and stage == 'down':
-					stage = "up"
-					counter += 1
-					print(counter)
+				# if angle > 160:
+				# 	stage = "down"
+				# if angle < 30 and stage == 'down':
+				# 	stage = "up"
+				# 	counter += 1
+				# 	print(counter)
 
 			except:
 				pass
@@ -84,27 +88,27 @@ def run():
 			# for lndmrk in mp_pose.PoseLandmark:
 			# 	print(lndmrk)
 
-			# Render curl counter
-			# Setup status box
-			cv2.rectangle(image, (0, 0), (225, 73), (245, 117, 16), -1)
-
-			# Rep data
-			cv2.putText(image, 'REPS', (15, 12),
-			            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1,
-			            cv2.LINE_AA)
-			cv2.putText(image, str(counter),
-			            (10, 60),
-			            cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 2,
-			            cv2.LINE_AA)
-
-			# Stage data
-			cv2.putText(image, 'STAGE', (65, 12),
-			            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1,
-			            cv2.LINE_AA)
-			cv2.putText(image, stage,
-			            (60, 60),
-			            cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 2,
-			            cv2.LINE_AA)
+			# # Render curl counter
+			# # Setup status box
+			# cv2.rectangle(image, (0, 0), (225, 73), (245, 117, 16), -1)
+			#
+			# # Rep data
+			# cv2.putText(image, 'REPS', (15, 12),
+			#             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1,
+			#             cv2.LINE_AA)
+			# cv2.putText(image, str(counter),
+			#             (10, 60),
+			#             cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 2,
+			#             cv2.LINE_AA)
+			#
+			# # Stage data
+			# cv2.putText(image, 'STAGE', (65, 12),
+			#             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1,
+			#             cv2.LINE_AA)
+			# cv2.putText(image, stage,
+			#             (60, 60),
+			#             cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 2,
+			#             cv2.LINE_AA)
 
 			# Render detections
 			mp_drawing.draw_landmarks(image, results.pose_landmarks,
