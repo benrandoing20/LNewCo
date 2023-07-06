@@ -1,21 +1,43 @@
 <!DOCTYPE html>
 <html>
-  <head>
+<head>
     <title>Live Video Feed</title>
     <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
     <script src="//code.jquery.com/jquery-1.11.1.js"></script>
     <script type="text/javascript">
-        $(document).ready(function() {
+        $(document).ready(function () {
             let video = document.querySelector("#videoElement");
+            let angleDiffElement = document.querySelector("#angleDiff");
+            let hipAngle = document.querySelector("#hipAngle");
+            let trunkAngle = document.querySelector("#trunkAngle");
+
 
             if (navigator.mediaDevices.getUserMedia) {
-                navigator.mediaDevices.getUserMedia({ video: true })
+                navigator.mediaDevices.getUserMedia({video: true})
                     .then(function (stream) {
                         video.srcObject = stream;
+                        console.log(stream)
                     })
                     .catch(function (error) {
                         console.log("Error accessing video stream: ", error);
                     });
+            }
+
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({video: true})
+                    .then(function (stream) {
+                        if ('srcObject' in video) {
+                            video.srcObject = stream;
+                        } else {
+                            video.src = window.URL.createObjectURL(stream);
+                        }
+                        console.log(stream);
+                    })
+                    .catch(function (error) {
+                        console.error('Error accessing video stream:', error);
+                    });
+            } else {
+                console.error('getUserMedia is not supported on this browser');
             }
 
             function capture() {
@@ -29,21 +51,36 @@
                 $.ajax({
                     type: 'POST',
                     url: '/capture',
-                    data: { image: imgDataUrl },
-                    success: function(response) {
-                        console.log(response);
+                    data: {image: imgDataUrl},
+                    success: function (response) {
+                        angleDiffElement.textContent = response.angle_diff;
                     }
                 });
 
-                setTimeout(capture, 1000);  // Capture a frame every second
+                setTimeout(capture, 500);  // Capture a frame every second
             }
 
             capture();
         });
     </script>
-  </head>
-  <body>
-    <h1>Functional Movement Assessment</h1>
-    <video id="videoElement" autoplay></video>
-  </body>
+</head>
+<body>
+<h1>Functional Movement Assessment</h1>
+<video id="videoElement" autoplay></video>
+<div class="tiles">
+    <div class="bigLeft tile"><span class="label">Angle
+        Difference: </span><span class="bigMetric" id="angleDiff">None
+      </span><span
+            class="unit">°</span></div>
+    <div class="bigLeft tile"><span class="label">Hip Angle: </span><span
+            class="bigMetric" id="hipAngle">None
+      </span><span
+            class="unit">°</span></div>
+    <div class="bigLeft tile"><span class="label">Trunk Angle: </span><span
+            class="bigMetric" id="trunkAngle">None
+      </span><span
+            class="unit">°</span></div>
+
+</div>
+</body>
 </html>

@@ -4,6 +4,7 @@
 
 from flask import Flask, jsonify, request, render_template, redirect, \
     url_for, make_response, Response
+from helperdb import angle_diff, frame
 # from flask_login import UserMixin, LoginManager, login_required, login_user, current_user
 # from flask_wtf import FlaskForm
 # from wtforms import SubmitField, SelectField
@@ -17,10 +18,6 @@ import cv2
 import mediapipe as mp
 from PIL import Image
 import io
-
-
-import mediapipeFunctional
-
 
 app = Flask(__name__)
 
@@ -38,18 +35,16 @@ mp_pose = mp.solutions.pose
 def index():
     return render_template('home.html')
 
-
 @app.route('/capture', methods=['POST'] )
 def capture():
-    image_data = request.form['image'].split(",")[1]
-    decoded_data = base64.b64decode(image_data)
-    image = Image.open(io.BytesIO(decoded_data))
-    image_np = np.array(image)
+    if request.method == 'POST':
+        image_data = request.form['image'].split(",")[1]
+        decoded_data = base64.b64decode(image_data)
+        image = Image.open(io.BytesIO(decoded_data))
+        image_np = np.array(image)
 
-    print(image_np.shape)
-
-    return 'Pose estimation completed.'
-    # generate_frame(frame)
+        frame, angle_diff = generate_frame(image_np)
+        return jsonify({'angle_diff': angle_diff})
 
 ############################################################################
 ########################## Helper Functions ################################
@@ -94,6 +89,8 @@ def generate_frame(frame):
 
                 angle_shank = calculate_angle_horz(knee, ankle)
 
+                angle_diff = angle_trunk - angle_shank
+
                 # Visualize angle of trunk and shank on video wrt ground
                 cv2.putText(image, str(angle_trunk),
                             tuple(np.multiply(hip, [640, 480]).astype(int)),
@@ -104,6 +101,9 @@ def generate_frame(frame):
                             tuple(np.multiply(knee, [640, 480]).astype(int)),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2,
                             cv2.LINE_AA)
+
+                print(angle_trunk)
+
 
             except:
                 pass
@@ -123,7 +123,7 @@ def generate_frame(frame):
             ret, buffer = cv2.imencode('.jpg', image)
             frame = buffer.tobytes()
             return (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n'), angle_diff
 
             # if cv2.waitKey(10) & 0xFF == ord('q'):
             #     break
