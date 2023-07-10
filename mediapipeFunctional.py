@@ -9,8 +9,7 @@ def file_import(path):
 	'''
 	Reads in video file in cv2 capture object
 	'''
-	video_path = "IMG_6746.MOV"
-	cap = cv2.VideoCapture(video_path)
+	cap = cv2.VideoCapture(path)
 
 	return cap
 
@@ -19,7 +18,7 @@ def generate_frames_file():
 	'''
 	Creates Pose Estimates for a Single Video File with output handout
 	'''
-	filename = "path/to/video/file.mp4"
+	filename = "IMG_6746.MOV"
 	cap = file_import(filename)
 
 	# Initialize MediaPipe Drawing
@@ -30,89 +29,101 @@ def generate_frames_file():
 
 	start_frame = 0
 	end_frame = 0
-	threshold_angle_hip = 120
+	threshold_angle_hip = 160
 	hip_angle_data = []
 
 	with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
 		while cap.isOpened():
-			ret, frame = cap.read()
-
-			# Recolor image to RGB
-			image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-			image.flags.writeable = False
-
-			# Make detection
-			results = pose.process(image)
-
-			# Recolor back to BGR
-			image.flags.writeable = True
-			image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-
 			try:
-				landmarks = results.pose_landmarks.landmark
 
-				# Get coordinates Lower Body
-				knee = [landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].x,
-				       landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].y]
+				ret, frame = cap.read()
 
-				hip = [landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x,
-					   landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y]
+				# Recolor image to RGB
+				image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+				image.flags.writeable = False
 
-				# Get coordinates Upper Body
-				shoulder = [landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,
-				            landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
+				# Make detection
+				results = pose.process(image)
 
-				# Calculate angles
-				hip_angle = calculate_angle(knee, hip, shoulder)
+				# Recolor back to BGR
+				image.flags.writeable = True
+				image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
-				# Update start and end frames
-				if hip_angle < threshold_angle_hip and start_frame == 0:
-					start_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
-				if hip_angle > threshold_angle_hip and start_frame != 0 and end_frame == 0:
-					end_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
+				try:
+					landmarks = results.pose_landmarks.landmark
+
+					# Get coordinates Lower Body
+					knee = [landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].x,
+					       landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].y]
+
+					hip = [landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x,
+						   landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y]
+
+					# Get coordinates Upper Body
+					shoulder = [landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,
+					            landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
+
+					# Calculate angles
+					hip_angle = calculate_angle(knee, hip, shoulder)
 
 
+					# Update start and end frames
+					if hip_angle < threshold_angle_hip and start_frame == 0:
+						start_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
+					if hip_angle > threshold_angle_hip and start_frame != 0 and end_frame == 0:
+						end_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
 
-				# Crop and store hip angle data within the squat range
-				if start_frame != 0 and end_frame != 0:
-					hip_angle_data.append(hip_angle)
 
-				hip_angle_data = hip_angle_data[int(start_frame):int(
-					end_frame)]
+					# Crop and store hip angle data within the squat range
+					if start_frame != 0 and end_frame == 0:
+						hip_angle_data.append(hip_angle)
 
-				# Visualize angle of hip_angle at the hip
-				cv2.putText(image, str(hip_angle),
-				            tuple(np.multiply(hip, [640, 480]).astype(int)),
-				            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2,
-				            cv2.LINE_AA)
+
+					# Visualize angle of hip_angle at the hip
+					cv2.putText(image, str(hip_angle),
+					            tuple(np.multiply(hip, [640, 480]).astype(int)),
+					            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2,
+					            cv2.LINE_AA)
+
+
+				except:
+					pass
+
+				# Render detections
+				mp_drawing.draw_landmarks(image, results.pose_landmarks,
+				                          mp_pose.POSE_CONNECTIONS,
+				                          mp_drawing.DrawingSpec(
+					                          color=(245, 117, 66),
+					                          thickness=2,
+					                          circle_radius=2),
+				                          mp_drawing.DrawingSpec(
+					                          color=(245, 66, 230),
+					                          thickness=2,
+					                          circle_radius=2)
+				                          )
+
+				# Display the image
+				cv2.imshow('Squat Video', image)
+				if cv2.waitKey(1) & 0xFF == ord('q'):
+					break
 
 			except:
-				pass
-
-			# Render detections
-			mp_drawing.draw_landmarks(image, results.pose_landmarks,
-			                          mp_pose.POSE_CONNECTIONS,
-			                          mp_drawing.DrawingSpec(
-				                          color=(245, 117, 66),
-				                          thickness=2,
-				                          circle_radius=2),
-			                          mp_drawing.DrawingSpec(
-				                          color=(245, 66, 230),
-				                          thickness=2,
-				                          circle_radius=2)
-			                          )
-
-			# Display the image
-			cv2.imshow('Squat Video', image)
-			if cv2.waitKey(1) & 0xFF == ord('q'):
 				break
 
-def make_plots(angle_data):
-	plt.figure(1)
+		cap.release()
+		cv2.destroyAllWindows()
+
+		print(hip_angle_data)
+		make_plot(hip_angle_data)
+
+
+def make_plot(angle_data):
+	plt.figure()
 	plt.plot(angle_data)
 	plt.xlabel('Frame')
 	plt.ylabel('Hip Angle (degrees)')
 	plt.title('Hip Angle during Squat')
+	plt.show()
 
 def generate_frames():
 	# Initialize MediaPipe Drawing
