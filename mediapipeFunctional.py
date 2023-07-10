@@ -15,6 +15,44 @@ def file_import(path):
 
 	return cap
 
+def start_stop(landmarks, mp_pose, cap):
+	start_frame = 0
+	end_frame = 0
+
+	threshold_angle_hip = 160
+
+	# Get coordinates Lower Body
+	knee = [landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].x,
+	        landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].y]
+
+	hip = [landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x,
+	       landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y]
+
+	# Get coordinates Upper Body
+	shoulder = [landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,
+	            landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
+
+	# Calculate angles
+	hip_angle = calculate_angle(knee, hip, shoulder)
+
+	# Update start and end frames
+	if hip_angle < threshold_angle_hip and start_frame == 0:
+		start_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
+	if hip_angle > threshold_angle_hip and start_frame != 0 and end_frame == 0:
+		end_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
+
+	return start_frame, end_frame
+
+def hip_angle(landmakrs, ):
+	# Calculate angles
+	hip_angle = calculate_angle(knee, hip, shoulder)
+
+	# Update start and end frames
+	if hip_angle < threshold_angle_hip and start_frame == 0:
+		start_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
+	if hip_angle > threshold_angle_hip and start_frame != 0 and end_frame == 0:
+		end_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
+
 
 def generate_frames_file():
 	'''
@@ -31,7 +69,6 @@ def generate_frames_file():
 
 	start_frame = 0
 	end_frame = 0
-	threshold_angle_hip = 160
 	hip_angle_data = []
 
 	with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
@@ -68,12 +105,8 @@ def generate_frames_file():
 					# Calculate angles
 					hip_angle = calculate_angle(knee, hip, shoulder)
 
-
-					# Update start and end frames
-					if hip_angle < threshold_angle_hip and start_frame == 0:
-						start_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
-					if hip_angle > threshold_angle_hip and start_frame != 0 and end_frame == 0:
-						end_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
+					start_frame, end_frame = start_stop(landmarks, mp_pose,
+					                                    cap)
 
 
 					# Crop and store hip angle data within the squat range
