@@ -3,6 +3,197 @@
 import cv2
 import mediapipe as mp
 import numpy as np
+import matplotlib.pyplot as plt
+from fpdf import FPDF
+
+
+def file_import(path):
+	'''
+	Reads in video file in cv2 capture object
+	'''
+	cap = cv2.VideoCapture(path)
+
+	return cap
+
+def start_stop(landmarks, mp_pose, cap):
+	start_frame = 0
+	end_frame = 0
+
+	threshold_angle_hip = 160
+
+	# Get coordinates Lower Body
+	knee = [landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].x,
+	        landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].y]
+
+	hip = [landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x,
+	       landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y]
+
+	# Get coordinates Upper Body
+	shoulder = [landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,
+	            landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
+
+	# Calculate angles
+	hip_angle = calculate_angle(knee, hip, shoulder)
+
+	# Update start and end frames
+	if hip_angle < threshold_angle_hip and start_frame == 0:
+		start_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
+	if hip_angle > threshold_angle_hip and start_frame != 0 and end_frame == 0:
+		end_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
+
+	return start_frame, end_frame
+
+def hip_angle(landmakrs, ):
+	# Calculate angles
+	hip_angle = calculate_angle(knee, hip, shoulder)
+
+	# Update start and end frames
+	if hip_angle < threshold_angle_hip and start_frame == 0:
+		start_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
+	if hip_angle > threshold_angle_hip and start_frame != 0 and end_frame == 0:
+		end_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
+
+
+def generate_frames_file():
+	'''
+	Creates Pose Estimates for a Single Video File with output handout
+	'''
+	filename = "IMG_6746.MOV"
+	cap = file_import(filename)
+
+	# Initialize MediaPipe Drawing
+	mp_drawing = mp.solutions.drawing_utils
+
+	# Initialize MediaPipe Pose model
+	mp_pose = mp.solutions.pose
+
+	start_frame = 0
+	end_frame = 0
+	hip_angle_data = []
+
+	with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
+		while cap.isOpened():
+			try:
+
+				ret, frame = cap.read()
+
+				# Recolor image to RGB
+				image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+				image.flags.writeable = False
+
+				# Make detection
+				results = pose.process(image)
+
+				# Recolor back to BGR
+				image.flags.writeable = True
+				image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+
+				try:
+					landmarks = results.pose_landmarks.landmark
+
+					# Get coordinates Lower Body
+					knee = [landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].x,
+					       landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].y]
+
+					hip = [landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x,
+						   landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y]
+
+					# Get coordinates Upper Body
+					shoulder = [landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,
+					            landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
+
+					# Calculate angles
+					hip_angle = calculate_angle(knee, hip, shoulder)
+
+					start_frame, end_frame = start_stop(landmarks, mp_pose,
+					                                    cap)
+
+
+					# Crop and store hip angle data within the squat range
+					if start_frame != 0 and end_frame == 0:
+						hip_angle_data.append(hip_angle)
+
+
+					# Visualize angle of hip_angle at the hip
+					cv2.putText(image, str(hip_angle),
+					            tuple(np.multiply(hip, [640, 480]).astype(int)),
+					            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2,
+					            cv2.LINE_AA)
+
+
+				except:
+					pass
+
+				# Render detections
+				mp_drawing.draw_landmarks(image, results.pose_landmarks,
+				                          mp_pose.POSE_CONNECTIONS,
+				                          mp_drawing.DrawingSpec(
+					                          color=(245, 117, 66),
+					                          thickness=2,
+					                          circle_radius=2),
+				                          mp_drawing.DrawingSpec(
+					                          color=(245, 66, 230),
+					                          thickness=2,
+					                          circle_radius=2)
+				                          )
+
+				# Display the image
+				cv2.imshow('Squat Video', image)
+				if cv2.waitKey(1) & 0xFF == ord('q'):
+					break
+
+			except:
+				break
+
+		cap.release()
+		cv2.destroyAllWindows()
+
+		make_plot(hip_angle_data)
+		make_handout()
+
+
+def make_plot(angle_data):
+	plt.figure()
+	plt.plot(angle_data)
+	plt.xlabel('Frame')
+	plt.ylabel('Hip Angle (degrees)')
+	plt.title('Hip Angle during Squat')
+	plt.savefig("hip_angle.png")
+	plt.show()
+	plt.close()
+
+def make_handout():
+    pdf_path = "functional.pdf"
+
+    # Create a new PDF instance
+    pdf = FPDF()
+
+    # Add a new page
+    pdf.add_page()
+
+    # Set font and size for the title
+    pdf.set_font("Arial", "B", 16)
+    pdf.cell(0, 10, "Functional Movement Assessment", 0, 1, "C")
+
+    # Set font and size for the content
+    pdf.set_font("Arial", "", 12)
+
+    # Add text content
+    pdf.cell(0, 10, "The Functional Movement Assessment criteria is "
+                    "visualized below for a specific video  ", 0, 1)
+
+    # Save the plot as an image
+    plot_image_path = "hip_angle.png"
+
+    # Add the plot image to the PDF
+    pdf.image(plot_image_path, x=10, y=50, w=100, h=75)  # Adjust the coordinates and size as needed
+
+    # Add the plot image to the PDF
+    pdf.image(plot_image_path, x=110, y=50, w=100,
+              h=75)  # Adjust the coordinates and size as needed
+
+    # Save the PDF file
+    pdf.output(pdf_path)
 
 def generate_frames():
 	# Initialize MediaPipe Drawing
@@ -88,7 +279,9 @@ def generate_frames():
 		cv2.destroyAllWindows()
 
 def calculate_angle(point1, point2, point3):
-    """Calculate angle between two lines given three points"""
+    '''
+    Calculate angle between two lines given three points
+    '''
     if point1 == (0, 0) or point2 == (0, 0) or point3 == (0, 0):
         return 0
 
@@ -122,7 +315,9 @@ def calculate_angle(point1, point2, point3):
         return 90.0
 
 def calculate_angle_horz(point1, point2):
-    """Calculate angle between lines and ground"""
+    '''
+    Calculate angle between lines and ground
+    '''
     if point1 == (0, 0) or point2 == (0, 0):
         return 0
 
@@ -156,4 +351,4 @@ def calculate_angle_horz(point1, point2):
         return 90.0
 
 if __name__ == '__main__':
-    generate_frames()
+    generate_frames_file()
