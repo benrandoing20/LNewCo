@@ -43,8 +43,9 @@ def capture():
         image = Image.open(io.BytesIO(decoded_data))
         image_np = np.array(image)
 
-        frame, angle_diff = generate_frame(image_np)
-        return jsonify({'angle_diff': angle_diff})
+        frame, angle_diff, angle_shank, angle_trunk = generate_frame(image_np)
+        return jsonify({'angle_diff': angle_diff, 'trunk_angle':
+            angle_trunk, 'shank_angle': angle_shank, 'frame': frame})
 
 ############################################################################
 ########################## Helper Functions ################################
@@ -123,7 +124,8 @@ def generate_frame(frame):
             ret, buffer = cv2.imencode('.jpg', image)
             frame = buffer.tobytes()
             return (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n'), angle_diff
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n'), \
+                   angle_diff, angle_shank, angle_trunk
 
             # if cv2.waitKey(10) & 0xFF == ord('q'):
             #     break

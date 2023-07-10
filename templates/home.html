@@ -8,8 +8,8 @@
         $(document).ready(function () {
             let video = document.querySelector("#videoElement");
             let angleDiffElement = document.querySelector("#angleDiff");
-            let hipAngle = document.querySelector("#hipAngle");
-            let trunkAngle = document.querySelector("#trunkAngle");
+            let hipAngleElement = document.querySelector("#hipAngle");
+            let trunkAngleElement = document.querySelector("#trunkAngle");
 
 
             if (navigator.mediaDevices.getUserMedia) {
@@ -21,23 +21,6 @@
                     .catch(function (error) {
                         console.log("Error accessing video stream: ", error);
                     });
-            }
-
-            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                navigator.mediaDevices.getUserMedia({video: true})
-                    .then(function (stream) {
-                        if ('srcObject' in video) {
-                            video.srcObject = stream;
-                        } else {
-                            video.src = window.URL.createObjectURL(stream);
-                        }
-                        console.log(stream);
-                    })
-                    .catch(function (error) {
-                        console.error('Error accessing video stream:', error);
-                    });
-            } else {
-                console.error('getUserMedia is not supported on this browser');
             }
 
             function capture() {
@@ -54,6 +37,8 @@
                     data: {image: imgDataUrl},
                     success: function (response) {
                         angleDiffElement.textContent = response.angle_diff;
+                        hipAngleElement.textContent = response.shank_angle;
+                        trunkAngleElement.textContent = response.trunk_angle;
                     }
                 });
 
