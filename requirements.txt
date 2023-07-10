@@ -4,4 +4,4 @@ opencv-python
 flask
 matplotlib
 scipy
-PyPDF2
+fpdf
