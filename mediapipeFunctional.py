@@ -5,6 +5,7 @@ import mediapipe as mp
 import numpy as np
 import matplotlib.pyplot as plt
 from fpdf import FPDF
+from PIL import Image
 
 
 def file_import(path):
@@ -16,8 +17,8 @@ def file_import(path):
 	return cap
 
 
-def start_stop(landmarks, mp_pose, cap, start_frame, end_frame):
-	threshold_angle_hip = 160
+def start_stop(landmarks, mp_pose, cap, start_frame, end_frame, threshold):
+	threshold_angle_hip = threshold
 
 	# Get coordinates Lower Body
 	knee = [landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].x,
@@ -161,6 +162,28 @@ def get_hipshin_angle(landmarks, mp_pose):
 	return deviation_angle
 
 
+def get_deepfemur_angle(landmarks, mp_pose):
+	# Get coordinates Left
+	knee_l = [landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].x,
+	          landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].y]
+
+	hip_l = [landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x,
+	          landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y]
+
+	# Get coordinates Right
+	knee_r = [landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value].x,
+	          landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value].y]
+
+	hip_r = [landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value].x,
+	          landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value].y]
+
+	# Calculate angles
+	femur_angle_left = calculate_angle_horz(hip_l, knee_l)
+	femur_angle_right = calculate_angle_horz(hip_r, knee_r)
+
+	return femur_angle_left, femur_angle_right
+
+
 def generate_frames_file():
 	'''
 	Creates Pose Estimates for a Single Video File with output handout
@@ -180,6 +203,11 @@ def generate_frames_file():
 	knee_angle_data = {"L": [], "R": []}
 	ankle_angle_data = {"L": [], "R": []}
 	deviation_angle_data = []
+	threshold = 160
+	hip_angle_min = threshold
+	global bottom_frame
+	bottom_frame = None
+
 
 	with mp_pose.Pose(min_detection_confidence=0.5,
 	                  min_tracking_confidence=0.5) as pose:
@@ -209,7 +237,7 @@ def generate_frames_file():
 
 					start_frame, end_frame = start_stop(landmarks, mp_pose,
 					                                    cap, start_frame,
-					                                    end_frame)
+					                                    end_frame, threshold)
 
 					# Crop and store hip angle data within the squat range
 					if start_frame != 0 and end_frame == 0:
@@ -224,7 +252,9 @@ def generate_frames_file():
 
 						deviation_angle_data.append(deviation_angle)
 
-
+						if hip_angle[0] < hip_angle_min:
+							hip_angle_min = hip_angle[0]
+							bottom_frame = frame
 
 					# Visualize angle of hip_angle at the hip
 					cv2.putText(image, str(hip_angle),
@@ -266,7 +296,10 @@ def generate_frames_file():
 		make_plot(ankle_angle_data, "Ankle")
 		make_plot(deviation_angle_data, "Deviation")
 
-		make_handout()
+		angle_femur_left, angle_femur_right = get_deepfemur_angle(landmarks,
+		                                                          mp_pose)
+
+		make_handout(angle_femur_left, angle_femur_right, bottom_frame)
 
 
 def make_plot(angle_data, name):
@@ -285,7 +318,7 @@ def make_plot(angle_data, name):
 	plt.close()
 
 
-def make_handout():
+def make_handout(fl, fr, bottom_frame):
 	pdf_path = "functional.pdf"
 
 	# Create a new PDF instance
@@ -310,7 +343,16 @@ def make_handout():
 	# Set font and size for the content
 	pdf.set_font("Arial", "", 10)
 
-	# Add text content
+	# Create a PIL Image object from the CV2 frame
+	image_pil = Image.fromarray(bottom_frame)
+
+	# Save the PIL image as a temporary file (optional)
+	temp_filename = 'temp_image.jpg'
+	image_pil.save(temp_filename)
+
+	# Add the image to the PDF
+	pdf.image(temp_filename, 150, 45, 40, 75)
+	# Add text conten t
 	pdf.cell(0, 20, "Functional Criteria", ln=True)
 
 	file_names_header = ["deviation"]
@@ -322,11 +364,20 @@ def make_handout():
 		# Add the plot image to the PDF
 		pdf.image(plot_image_path, x=(10 + (90 * (i % 2))),
 		          y=(45),
-		          w=80,
-		          h=50)
+		          w=100,
+		          h=75)
+
+	# Convert the float values to strings with 2 decimal places
+	fl_str = "{:.2f}".format(fl)
+	fr_str = "{:.2f}".format(fr)
+
+	# Add the text content with centered alignment
+	pdf.cell(0, 30, fl_str)
+	pdf.cell(0, 30, fr_str)
+
 
 	# Add text content
-	pdf.cell(0, 115, "Joint Kinematics", ln=True)
+	pdf.cell(0, 165, "Joint Kinematics", ln=True)
 
 
 	file_names = ["hip", "knee", "ankle"]
@@ -337,7 +388,7 @@ def make_handout():
 
 		# Add the plot image to the PDF
 		pdf.image(plot_image_path, x=(10 + (90 * (i % 2))),
-		                           y=(110 + (70 * np.floor(i/2))),
+		                           y=(140 + (70 * np.floor(i/2))),
 		                           w=100,
 		                           h=75)
 
