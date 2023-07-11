@@ -139,9 +139,9 @@ def get_hipshin_angle(landmarks, mp_pose):
 	                         landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE.value]]
 
 	# Extract the x, y, and z coordinates of the landmarks
-	torso_coordinates = [(landmark.x, landmark.y, landmark.z) for landmark in
+	torso_coordinates = [(value.x, value.y, value.z) for value in
 	                     torso_landmarks]
-	shin_coordinates = [(landmark.x, landmark.y, landmark.z) for landmark in
+	shin_coordinates = [(value.x, value.y, value.z) for value in
 	                    shin_landmarks]
 
 	# Calculate the vector of the torso plane
@@ -205,7 +205,7 @@ def generate_frames_file():
 					hip_angle = get_hip_angle(landmarks, mp_pose)
 					knee_angle = get_knee_angle(landmarks, mp_pose)
 					ankle_angle = get_ankle_angle(landmarks, mp_pose)
-					# deviation_angle = get_hipshin_angle(landmarks, mp_pose)
+					deviation_angle = get_hipshin_angle(landmarks, mp_pose)
 
 					start_frame, end_frame = start_stop(landmarks, mp_pose,
 					                                    cap, start_frame,
@@ -222,7 +222,7 @@ def generate_frames_file():
 						ankle_angle_data["L"].append(ankle_angle[0])
 						ankle_angle_data["R"].append(ankle_angle[1])
 
-						# deviation_angle_data.append(deviation_angle)
+						deviation_angle_data.append(deviation_angle)
 
 
 
@@ -271,7 +271,6 @@ def generate_frames_file():
 
 def make_plot(angle_data, name):
 	plt.figure()
-	print(type(angle_data))
 	if (type(angle_data) is dict):
 		plt.plot(angle_data["L"])
 		plt.plot(angle_data["R"])
@@ -306,16 +305,29 @@ def make_handout():
 
 	# Add text content
 	pdf.cell(0, 10, "The Functional Movement Assessment criteria is "
-	                "visualized below for the Deep Squat Test ", 0, 1)
+	                "visualized below for the Deep Squat Test ", ln=True)
 
 	# Set font and size for the content
 	pdf.set_font("Arial", "", 10)
 
 	# Add text content
-	pdf.cell(0, 10, "Functional Criteria", 0, 1)
+	pdf.cell(0, 20, "Functional Criteria", ln=True)
+
+	file_names_header = ["deviation"]
+
+	# Save the plot as an image
+	for i, name in enumerate(file_names_header):
+		plot_image_path = name + "_angle.png"
+
+		# Add the plot image to the PDF
+		pdf.image(plot_image_path, x=(10 + (90 * (i % 2))),
+		          y=(45),
+		          w=80,
+		          h=50)
 
 	# Add text content
-	pdf.cell(0, 10, "Joint Kinematics", 0, 1)
+	pdf.cell(0, 115, "Joint Kinematics", ln=True)
+
 
 	file_names = ["hip", "knee", "ankle"]
 
@@ -325,7 +337,7 @@ def make_handout():
 
 		# Add the plot image to the PDF
 		pdf.image(plot_image_path, x=(10 + (90 * (i % 2))),
-		                           y=(30 + (70 * np.floor(i/2))),
+		                           y=(110 + (70 * np.floor(i/2))),
 		                           w=100,
 		                           h=75)
 
