@@ -299,6 +299,7 @@ def generate_frames_file():
 		angle_femur_left, angle_femur_right = get_deepfemur_angle(landmarks,
 		                                                          mp_pose)
 
+		bottom_frame = cv2.cvtColor(bottom_frame, cv2.COLOR_BGR2RGB)
 		make_handout(angle_femur_left, angle_femur_right, bottom_frame)
 
 
@@ -351,7 +352,7 @@ def make_handout(fl, fr, bottom_frame):
 	image_pil.save(temp_filename)
 
 	# Add the image to the PDF
-	pdf.image(temp_filename, 150, 45, 40, 75)
+	pdf.image(temp_filename, 147, 45, 43, 80)
 	# Add text conten t
 	pdf.cell(0, 20, "Functional Criteria", ln=True)
 
@@ -361,7 +362,7 @@ def make_handout(fl, fr, bottom_frame):
 	for i, name in enumerate(file_names_header):
 		plot_image_path = name + "_angle.png"
 
-		# Add the plot image to the PDF
+		 # Add the plot image to the PDF
 		pdf.image(plot_image_path, x=(10 + (90 * (i % 2))),
 		          y=(45),
 		          w=100,
@@ -372,12 +373,15 @@ def make_handout(fl, fr, bottom_frame):
 	fr_str = "{:.2f}".format(fr)
 
 	# Add the text content with centered alignment
-	pdf.cell(0, 30, fl_str)
-	pdf.cell(0, 30, fr_str)
+	pdf.set_xy((pdf.w-4)/2, 70)
+	pdf.cell(0, 10, "Deepest Femur L: " + fl_str, ln=True)
 
+	pdf.set_xy((pdf.w-4)/2, 80)
+	pdf.cell(0, 10, "Deepest Femur R: " + fr_str, ln=True)
 
 	# Add text content
-	pdf.cell(0, 165, "Joint Kinematics", ln=True)
+	pdf.set_xy(10, 120)
+	pdf.cell(0, 10, "Joint Kinematics", ln=True)
 
 
 	file_names = ["hip", "knee", "ankle"]
@@ -388,7 +392,7 @@ def make_handout(fl, fr, bottom_frame):
 
 		# Add the plot image to the PDF
 		pdf.image(plot_image_path, x=(10 + (90 * (i % 2))),
-		                           y=(140 + (70 * np.floor(i/2))),
+		                           y=(130 + (70 * np.floor(i/2))),
 		                           w=100,
 		                           h=75)
 
