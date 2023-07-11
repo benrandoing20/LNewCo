@@ -5,3 +5,4 @@ flask
 matplotlib
 scipy
 fpdf
+pillow
