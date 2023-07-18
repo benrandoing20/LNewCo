@@ -49,15 +49,21 @@ def generate_frames_file():
 	'''
 	Creates Pose Estimates for a Single Video File with output handout
 	'''
-	filename = "IMG_6746.MOV"
-	cap = file_import(filename)
+	filename_side = "IMG_6783.mov"
+	filename_front = "IMG_6784.mov"
+	cap = file_import(filename_side)
+	cap2 = file_import(filename_front)
 
 	# Initialize MediaPipe Drawing
 	mp_drawing = mp.solutions.drawing_utils
+	mp_drawing2 = mp.solutions.drawing_utils
 
 	# Initialize MediaPipe Pose model
 	mp_pose = mp.solutions.pose
+	mp_pose2 = mp.solutions.pose
 
+
+	# Computed with the Side View
 	start_frame = 0
 	end_frame = 0
 	hip_angle_data = {"L": [], "R": []}
@@ -66,6 +72,10 @@ def generate_frames_file():
 	deviation_angle_data = []
 	threshold = 160
 	hip_angle_min = threshold
+
+	# Computed with the Front View
+	shin_varvalg_angle_data = {"L": [], "R": []}
+
 
 	global bottom_frame, angle_femur_left, angle_femur_right
 	angle_femur_left = None
@@ -94,9 +104,13 @@ def generate_frames_file():
 					landmarks = results.pose_landmarks.landmark
 
 					# Calculate angles
+					# TODO: Consider if anything else can be passed to
+					#  functions to decrease functions size
 					hip_angle = get_hip_angle(landmarks, mp_pose)
 					knee_angle = get_knee_angle(landmarks, mp_pose)
 					ankle_angle = get_ankle_angle(landmarks, mp_pose)
+					shin_varvalg_angle = get_varvalg_angle(landmarks,
+					                                            mp_pose)
 					deviation_angle = get_hipshin_angle(landmarks, mp_pose)
 
 					start_frame, end_frame = start_stop(landmarks, mp_pose,
@@ -113,6 +127,11 @@ def generate_frames_file():
 
 						ankle_angle_data["L"].append(ankle_angle[0])
 						ankle_angle_data["R"].append(ankle_angle[1])
+
+						shin_varvalg_angle_data["L"].append(
+							shin_varvalg_angle[0])
+						shin_varvalg_angle_data["R"].append(
+							shin_varvalg_angle[1])
 
 						deviation_angle_data.append(deviation_angle)
 
@@ -155,7 +174,9 @@ def generate_frames_file():
 				if cv2.waitKey(1) & 0xFF == ord('q'):
 					break
 
-			except:
+
+			except Exception as e:
+				traceback.print_exc()
 				break
 
 		cap.release()
@@ -166,11 +187,86 @@ def generate_frames_file():
 		make_plot(ankle_angle_data, "Ankle")
 		make_plot(deviation_angle_data, "Deviation")
 
-
+		front_view(cap2, mp_drawing2, mp_pose2, start_frame, end_frame, shin_varvalg_angle_data)
 
 		bottom_frame = cv2.cvtColor(bottom_frame, cv2.COLOR_BGR2RGB)
 		make_handout(angle_femur_left, angle_femur_right, bottom_frame)
 
+		analyze_data(hip_angle_data, knee_angle_data, ankle_angle_data,
+		             deviation_angle_data, shin_varvalg_angle_data,
+		             (angle_femur_left, angle_femur_right))
+
+
+def front_view(cap2, mp_drawing2, mp_pose2, start_frame, end_frame,
+               shin_varvalg_angle_data):
+	with mp_pose2.Pose(min_detection_confidence=0.5,
+	                  min_tracking_confidence=0.5) as pose:
+		while cap2.isOpened():
+			try:
+				retFr, frameFr = cap2.read()
+
+				# Recolor image to RGB
+				imageFr = cv2.cvtColor(frameFr, cv2.COLOR_BGR2RGB)
+				imageFr.flags.writeable = False
+
+				# Make detection
+				resultsFr = pose.process(imageFr)
+
+				# Recolor back to BGR
+				imageFr.flags.writeable = True
+				imageFr = cv2.cvtColor(imageFr, cv2.COLOR_RGB2BGR)
+
+				try:
+					landmarksFr = resultsFr.pose_landmarks.landmark
+
+					# Calculate angles
+					# TODO: Consider if anything else can be passed to
+					#  functions to decrease functions size
+					shin_varvalg_angle = get_varvalg_angle(landmarksFr,
+					                                            mp_pose2)
+
+					# Crop and store hip angle data within the squat range
+					if start_frame != 0 and end_frame == 0:
+						shin_varvalg_angle_data["L"].append(
+							shin_varvalg_angle[0])
+						shin_varvalg_angle_data["R"].append(
+							shin_varvalg_angle[1])
+
+				except Exception as e:
+					traceback.print_exc()
+					pass
+
+				# Render detections
+				mp_drawing2.draw_landmarks(imageFr, resultsFr.pose_landmarks,
+				                          mp_pose2.POSE_CONNECTIONS,
+				                          mp_drawing2.DrawingSpec(
+					                          color=(245, 117, 66),
+					                          thickness=2,
+					                          circle_radius=2),
+				                          mp_drawing2.DrawingSpec(
+					                          color=(245, 66, 230),
+					                          thickness=2,
+					                          circle_radius=2)
+				                          )
+
+				# Display the image
+				cv2.imshow('Squat Video Front', imageFr)
+				if cv2.waitKey(1) & 0xFF == ord('q'):
+					break
+
+			except Exception as e:
+				traceback.print_exc()
+				break
+
+		cap2.release()
+		cv2.destroyAllWindows()
+
+		make_plot(shin_varvalg_angle_data, "VarValg")
+
+
+def analyze_data(hip_angle, knee_angle, ankle_angle, dev_angle, vv_angle,
+                 deepest):
+	pass
 
 def make_plot(angle_data, name):
 	plt.figure()
@@ -253,7 +349,7 @@ def make_handout(fl, fr, bottom_frame):
 	pdf.cell(0, 10, "Joint Kinematics", ln=True)
 
 
-	file_names = ["hip", "knee", "ankle"]
+	file_names = ["hip", "knee", "ankle", "varvalg"]
 
 	# Save the plot as an image
 	for i, name in enumerate(file_names):
@@ -265,96 +361,10 @@ def make_handout(fl, fr, bottom_frame):
 		                           w=100,
 		                           h=75)
 
+	pdf.add_page()
+
 	# Save the PDF file
 	pdf.output(pdf_path)
-
-##################################################################
-################# Live Feed ######################################
-##################################################################
-def generate_frames():
-	# Initialize MediaPipe Drawing
-	mp_drawing = mp.solutions.drawing_utils
-
-	# Initialize MediaPipe Pose model
-	mp_pose = mp.solutions.pose
-
-	cap = cv2.VideoCapture(0)
-	## Setup mediapipe instance
-	with mp_pose.Pose(min_detection_confidence=0.5,
-	                  min_tracking_confidence=0.5) as pose:
-		while cap.isOpened():
-			ret, frame = cap.read()
-
-			# Recolor image to RGB
-			image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-			image.flags.writeable = False
-
-			# Make detection
-			results = pose.process(image)
-
-			# Recolor back to BGR
-			image.flags.writeable = True
-			image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-
-			# Extract landmarks
-			try:
-				landmarks = results.pose_landmarks.landmark
-
-				# Get coordinates Lower Body
-				knee = [landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].x,
-				        landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].y]
-
-				hip = [landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x,
-				       landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y]
-
-				ankle = [landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value].x,
-				         landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value].y]
-
-				# Get coordinates Upper Body
-				shoulder = [
-					landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,
-					landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
-
-				# Calculate angles
-				angle_trunk = calculate_angle_horz(shoulder, hip)
-
-				angle_shank = calculate_angle_horz(knee, ankle)
-
-				# Visualize angle of trunk and shank on video wrt ground
-				cv2.putText(image, str(angle_trunk),
-				            tuple(np.multiply(hip, [640, 480]).astype(int)),
-				            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2,
-				            cv2.LINE_AA)
-
-				cv2.putText(image, str(angle_shank),
-				            tuple(np.multiply(knee, [640, 480]).astype(int)),
-				            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2,
-				            cv2.LINE_AA)
-
-			except:
-				pass
-
-			# Render detections
-			mp_drawing.draw_landmarks(image, results.pose_landmarks,
-			                          mp_pose.POSE_CONNECTIONS,
-			                          mp_drawing.DrawingSpec(
-				                          color=(245, 117, 66),
-				                          thickness=2,
-				                          circle_radius=2),
-			                          mp_drawing.DrawingSpec(
-				                          color=(245, 66, 230),
-				                          thickness=2,
-				                          circle_radius=2)
-			                          )
-
-			cv2.imshow('Mediapipe Feed', image)
-
-			if cv2.waitKey(10) & 0xFF == ord('q'):
-				break
-
-		cap.release()
-		cv2.destroyAllWindows()
-
 
 if __name__ == '__main__':
 	generate_frames_file()

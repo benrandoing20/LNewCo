@@ -158,6 +158,31 @@ def get_deepfemur_angle(landmarks, mp_pose):
 	return femur_angle_left, femur_angle_right
 
 
+def get_varvalg_angle(landmarks, mp_pose):
+	'''
+	Angle of Upper Leg Segment at Deepest Part of Squat
+	'''
+	# Get coordinates Left
+	knee_l = [landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].x,
+	          landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].y]
+
+	ankle_l = [landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value].x,
+	          landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value].y]
+
+	# Get coordinates Right
+	knee_r = [landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value].x,
+	          landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value].y]
+
+	ankle_r = [landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE.value].x,
+	          landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE.value].y]
+
+	# Calculate angles
+	varvalg_angle_left = calculate_angle_horz(ankle_l, knee_l)
+	varvalg_angle_right = calculate_angle_horz(ankle_r, knee_r)
+
+	return varvalg_angle_left, varvalg_angle_right
+
+
 ####################################################################
 ################## Angle Calculating Functions #####################
 ####################################################################
@@ -235,18 +260,58 @@ def calculate_angle_horz(point1, point2):
 	except ZeroDivisionError:
 		return 90.0
 
-def calculate_angle_plane(plane1, plane2):
+def calculate_angle_vert(point1, point2):
 	'''
 	Calculate angle between lines and ground
 	'''
+	if point1 == (0, 0) or point2 == (0, 0):
+		return 0
+
+	# Calculate vector
+	vector1 = (point1[0] - point2[0], point1[1] - point2[1])
+	vector2 = (0, 1)
+
+	# Calculate dot product
+	dot_product = vector1[0] * vector2[0] + vector1[1] * vector2[1]
+
+	# Calculate magnitudes
+	magnitude1 = np.sqrt(vector1[0] ** 2 + vector1[1] ** 2)
+	magnitude2 = np.sqrt(vector2[0] ** 2 + vector2[1] ** 2)
+
 	try:
-		angle_radians = np.arccos(np.dot(plane1, plane2) /
-		                          (np.linalg.norm(
-			                          plane1) * np.linalg.norm(
-			                          plane2)))
-		angle_degrees = np.degrees(angle_radians)
+		# Calculate cosine of the angle
+		cosine_angle = dot_product / (magnitude1 * magnitude2)
+
+		# Calculate angle in radians
+		radian_angle = np.arccos(cosine_angle)
+
+		# Convert angle to degrees
+		degree_angle = np.degrees(radian_angle)
+
+		if degree_angle > 180.0:
+			degree_angle = 360 - degree_angle
+
+		return degree_angle
 
 	except ZeroDivisionError:
 		return 90.0
 
-	return angle_degrees
+def calculate_angle_plane(plane1, plane2):
+    '''
+    Calculate angle between lines and ground
+    '''
+    try:
+        dot_product = np.dot(plane1, plane2)
+        norm_product = np.linalg.norm(plane1) * np.linalg.norm(plane2)
+        angle_radians = np.arccos(dot_product / norm_product)
+        angle_degrees = np.degrees(angle_radians)
+
+        # Check if the cross product is negative
+        cross_product = np.cross(plane1, plane2)
+        if cross_product < 0:
+            angle_degrees = -angle_degrees
+
+    except ZeroDivisionError:
+        return 90.0
+
+    return angle_degrees
