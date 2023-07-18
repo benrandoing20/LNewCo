@@ -9,6 +9,7 @@ from fpdf import FPDF
 from PIL import Image
 from angle_calc import *
 import traceback
+import analyzer
 
 
 def file_import(path):
@@ -109,8 +110,6 @@ def generate_frames_file():
 					hip_angle = get_hip_angle(landmarks, mp_pose)
 					knee_angle = get_knee_angle(landmarks, mp_pose)
 					ankle_angle = get_ankle_angle(landmarks, mp_pose)
-					shin_varvalg_angle = get_varvalg_angle(landmarks,
-					                                            mp_pose)
 					deviation_angle = get_hipshin_angle(landmarks, mp_pose)
 
 					start_frame, end_frame = start_stop(landmarks, mp_pose,
@@ -128,11 +127,6 @@ def generate_frames_file():
 						ankle_angle_data["L"].append(ankle_angle[0])
 						ankle_angle_data["R"].append(ankle_angle[1])
 
-						shin_varvalg_angle_data["L"].append(
-							shin_varvalg_angle[0])
-						shin_varvalg_angle_data["R"].append(
-							shin_varvalg_angle[1])
-
 						deviation_angle_data.append(deviation_angle)
 
 						if hip_angle[0] < hip_angle_min:
@@ -144,7 +138,7 @@ def generate_frames_file():
 								landmarks,
 								mp_pose)
 
-					# TODO: Consider making this plot on screen again ie: if reccording of poses is saved
+					# TODO: Consider making this plot on screen again ie: if recording of poses is saved
 					# # Visualize angle of hip_angle at the hip
 					# cv2.putText(image, str(hip_angle),
 					#             tuple(
@@ -216,6 +210,8 @@ def front_view(cap2, mp_drawing2, mp_pose2, start_frame, end_frame,
 				imageFr.flags.writeable = True
 				imageFr = cv2.cvtColor(imageFr, cv2.COLOR_RGB2BGR)
 
+				frame_num = cap2.get(cv2.CAP_PROP_POS_FRAMES)
+
 				try:
 					landmarksFr = resultsFr.pose_landmarks.landmark
 
@@ -226,7 +222,7 @@ def front_view(cap2, mp_drawing2, mp_pose2, start_frame, end_frame,
 					                                            mp_pose2)
 
 					# Crop and store hip angle data within the squat range
-					if start_frame != 0 and end_frame == 0:
+					if frame_num >= start_frame and frame_num <= end_frame:
 						shin_varvalg_angle_data["L"].append(
 							shin_varvalg_angle[0])
 						shin_varvalg_angle_data["R"].append(
@@ -266,7 +262,9 @@ def front_view(cap2, mp_drawing2, mp_pose2, start_frame, end_frame,
 
 def analyze_data(hip_angle, knee_angle, ankle_angle, dev_angle, vv_angle,
                  deepest):
-	pass
+
+
+
 
 def make_plot(angle_data, name):
 	plt.figure()
