@@ -1,4 +1,5 @@
 # File Created to test MediaPipe Pose Estimator for Functional Assessment
+# Created by Ben Randoing for L-NewCo during 07/2023
 
 import cv2
 import mediapipe as mp
@@ -6,6 +7,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from fpdf import FPDF
 from PIL import Image
+from angle_calc import *
+import traceback
 
 
 def file_import(path):
@@ -42,148 +45,6 @@ def start_stop(landmarks, mp_pose, cap, start_frame, end_frame, threshold):
 
 	return start_frame, end_frame
 
-
-def get_hip_angle(landmarks, mp_pose):
-	# Get coordinates Left
-	knee_l = [landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].x,
-	          landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].y]
-
-	hip_l = [landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x,
-	         landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y]
-
-	shoulder_l = [landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,
-	              landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
-
-	# Get coordinates Right
-	knee_r = [landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value].x,
-	          landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value].y]
-
-	hip_r = [landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value].x,
-	         landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value].y]
-
-	# Get coordinates Upper Body
-	shoulder_r = [landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].x,
-	              landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].y]
-
-	# Calculate angles
-	hip_angle_left = calculate_angle(knee_l, hip_l, shoulder_l)
-	hip_angle_right = calculate_angle(knee_r, hip_r, shoulder_r)
-
-	return hip_angle_left, hip_angle_right
-
-
-def get_knee_angle(landmarks, mp_pose):
-	# Get coordinates Left
-	knee_l = [landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].x,
-	          landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].y]
-
-	hip_l = [landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x,
-	         landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y]
-
-	ankle_l = [landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value].x,
-	           landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value].y]
-
-	# Get coordinates Right
-	knee_r = [landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value].x,
-	          landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value].y]
-
-	hip_r = [landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value].x,
-	         landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value].y]
-
-	ankle_r = [landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE.value].x,
-	           landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE.value].y]
-
-	# Calculate angles
-	knee_angle_left = calculate_angle(hip_l, knee_l, ankle_l)
-	knee_angle_right = calculate_angle(hip_r, knee_r, ankle_r)
-
-	return knee_angle_left, knee_angle_right
-
-
-def get_ankle_angle(landmarks, mp_pose):
-	# Get coordinates Left
-	knee_l = [landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].x,
-	          landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].y]
-
-	foot_l = [landmarks[mp_pose.PoseLandmark.LEFT_FOOT_INDEX.value].x,
-	         landmarks[mp_pose.PoseLandmark.LEFT_FOOT_INDEX.value].y]
-
-	ankle_l = [landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value].x,
-	           landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value].y]
-
-	# Get coordinates Right
-	knee_r = [landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value].x,
-	          landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value].y]
-
-	foot_r = [landmarks[mp_pose.PoseLandmark.RIGHT_FOOT_INDEX.value].x,
-	         landmarks[mp_pose.PoseLandmark.RIGHT_FOOT_INDEX.value].y]
-
-	ankle_r = [landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE.value].x,
-	           landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE.value].y]
-
-	# Calculate angles
-	ankle_angle_left = calculate_angle(knee_l, ankle_l, foot_l)
-	ankle_angle_right = calculate_angle(knee_r, ankle_r, foot_r)
-
-	return ankle_angle_left, ankle_angle_right
-
-
-def get_hipshin_angle(landmarks, mp_pose):
-	torso_landmarks = [landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value],
-	                          landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value],
-	                          landmarks[mp_pose.PoseLandmark.LEFT_HIP.value],
-	                          landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value]]
-
-	shin_landmarks = [landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value],
-	                         landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value],
-	                         landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value],
-	                         landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE.value]]
-
-	# Extract the x, y, and z coordinates of the landmarks
-	torso_coordinates = [(value.x, value.y, value.z) for value in
-	                     torso_landmarks]
-	shin_coordinates = [(value.x, value.y, value.z) for value in
-	                    shin_landmarks]
-
-	# Calculate the vector of the torso plane
-	torso_vector1 = np.subtract(torso_coordinates[0], torso_coordinates[1])
-	torso_vector2 = np.subtract(torso_coordinates[2], torso_coordinates[1])
-
-	# Calculate the vector of the shin plane
-	shin_vector1 = np.subtract(shin_coordinates[0], shin_coordinates[1])
-	shin_vector2 = np.subtract(shin_coordinates[2], shin_coordinates[1])
-
-	# Calculate the angle between the two planes
-	torso_plane_normal = np.cross(torso_vector1, torso_vector2)
-	shin_plane_normal = np.cross(shin_vector1, shin_vector2)
-
-	deviation_angle = calculate_angle_plane(torso_plane_normal,
-	                                      shin_plane_normal)
-	return deviation_angle
-
-
-def get_deepfemur_angle(landmarks, mp_pose):
-	# Get coordinates Left
-	knee_l = [landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].x,
-	          landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].y]
-
-	hip_l = [landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x,
-	          landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y]
-
-	# Get coordinates Right
-	knee_r = [landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value].x,
-	          landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value].y]
-
-	hip_r = [landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value].x,
-	          landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value].y]
-
-	# Calculate angles
-	femur_angle_left = calculate_angle_horz(hip_l, knee_l)
-	femur_angle_right = calculate_angle_horz(hip_r, knee_r)
-
-	return femur_angle_left, femur_angle_right
-
-
 def generate_frames_file():
 	'''
 	Creates Pose Estimates for a Single Video File with output handout
@@ -205,7 +66,10 @@ def generate_frames_file():
 	deviation_angle_data = []
 	threshold = 160
 	hip_angle_min = threshold
-	global bottom_frame
+
+	global bottom_frame, angle_femur_left, angle_femur_right
+	angle_femur_left = None
+	angle_femur_right = None
 	bottom_frame = None
 
 
@@ -253,18 +117,24 @@ def generate_frames_file():
 						deviation_angle_data.append(deviation_angle)
 
 						if hip_angle[0] < hip_angle_min:
+							# TODO: Refine This algorithmically to avoid
+							#  extra compute
 							hip_angle_min = hip_angle[0]
 							bottom_frame = frame
+							angle_femur_left, angle_femur_right = get_deepfemur_angle(
+								landmarks,
+								mp_pose)
 
-					# Visualize angle of hip_angle at the hip
-					cv2.putText(image, str(hip_angle),
-					            tuple(
-						            np.multiply(hip, [640, 480]).astype(int)),
-					            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2,
-					            cv2.LINE_AA)
+					# TODO: Consider making this plot on screen again ie: if reccording of poses is saved
+					# # Visualize angle of hip_angle at the hip
+					# cv2.putText(image, str(hip_angle),
+					#             tuple(
+					# 	            np.multiply(hip, [640, 480]).astype(int)),
+					#             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2,
+					#             cv2.LINE_AA)
 
-
-				except:
+				except Exception as e:
+					traceback.print_exc()
 					pass
 
 				# Render detections
@@ -296,8 +166,7 @@ def generate_frames_file():
 		make_plot(ankle_angle_data, "Ankle")
 		make_plot(deviation_angle_data, "Deviation")
 
-		angle_femur_left, angle_femur_right = get_deepfemur_angle(landmarks,
-		                                                          mp_pose)
+
 
 		bottom_frame = cv2.cvtColor(bottom_frame, cv2.COLOR_BGR2RGB)
 		make_handout(angle_femur_left, angle_femur_right, bottom_frame)
@@ -339,7 +208,7 @@ def make_handout(fl, fr, bottom_frame):
 
 	# Add text content
 	pdf.cell(0, 10, "The Functional Movement Assessment criteria is "
-	                "visualized below for the Deep Squat Test ", ln=True)
+	                "visualized below for the Overhead Squat Test ", ln=True)
 
 	# Set font and size for the content
 	pdf.set_font("Arial", "", 10)
@@ -399,8 +268,9 @@ def make_handout(fl, fr, bottom_frame):
 	# Save the PDF file
 	pdf.output(pdf_path)
 
-
+##################################################################
 ################# Live Feed ######################################
+##################################################################
 def generate_frames():
 	# Initialize MediaPipe Drawing
 	mp_drawing = mp.solutions.drawing_utils
@@ -484,96 +354,6 @@ def generate_frames():
 
 		cap.release()
 		cv2.destroyAllWindows()
-
-
-def calculate_angle(point1, point2, point3):
-	'''
-	Calculate angle between two lines given three points
-	'''
-	if point1 == (0, 0) or point2 == (0, 0) or point3 == (0, 0):
-		return 0
-
-	# Calculate vectors
-	vector1 = (point1[0] - point2[0], point1[1] - point2[1])
-	vector2 = (point3[0] - point2[0], point3[1] - point2[1])
-
-	# Calculate dot product
-	dot_product = vector1[0] * vector2[0] + vector1[1] * vector2[1]
-
-	# Calculate magnitudes
-	magnitude1 = np.sqrt(vector1[0] ** 2 + vector1[1] ** 2)
-	magnitude2 = np.sqrt(vector2[0] ** 2 + vector2[1] ** 2)
-
-	try:
-		# Calculate cosine of the angle
-		cosine_angle = dot_product / (magnitude1 * magnitude2)
-
-		# Calculate angle in radians
-		radian_angle = np.arccos(cosine_angle)
-
-		# Convert angle to degrees
-		degree_angle = np.degrees(radian_angle)
-
-		if degree_angle > 180.0:
-			degree_angle = 360 - degree_angle
-
-		return degree_angle
-
-	except ZeroDivisionError:
-		return 90.0
-
-
-def calculate_angle_horz(point1, point2):
-	'''
-	Calculate angle between lines and ground
-	'''
-	if point1 == (0, 0) or point2 == (0, 0):
-		return 0
-
-	# Calculate vector
-	vector1 = (point1[0] - point2[0], point1[1] - point2[1])
-	vector2 = (1, 0)
-
-	# Calculate dot product
-	dot_product = vector1[0] * vector2[0] + vector1[1] * vector2[1]
-
-	# Calculate magnitudes
-	magnitude1 = np.sqrt(vector1[0] ** 2 + vector1[1] ** 2)
-	magnitude2 = np.sqrt(vector2[0] ** 2 + vector2[1] ** 2)
-
-	try:
-		# Calculate cosine of the angle
-		cosine_angle = dot_product / (magnitude1 * magnitude2)
-
-		# Calculate angle in radians
-		radian_angle = np.arccos(cosine_angle)
-
-		# Convert angle to degrees
-		degree_angle = np.degrees(radian_angle)
-
-		if degree_angle > 180.0:
-			degree_angle = 360 - degree_angle
-
-		return degree_angle
-
-	except ZeroDivisionError:
-		return 90.0
-
-def calculate_angle_plane(plane1, plane2):
-	'''
-	Calculate angle between lines and ground
-	'''
-	try:
-		angle_radians = np.arccos(np.dot(plane1, plane2) /
-		                          (np.linalg.norm(
-			                          plane1) * np.linalg.norm(
-			                          plane2)))
-		angle_degrees = np.degrees(angle_radians)
-
-	except ZeroDivisionError:
-		return 90.0
-
-	return angle_degrees
 
 
 if __name__ == '__main__':
