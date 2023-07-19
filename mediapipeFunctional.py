@@ -9,8 +9,7 @@ from fpdf import FPDF
 from PIL import Image
 from angle_calc import *
 import traceback
-import analyzer
-
+from analyzer import AnalyzeSquat
 
 def file_import(path):
 	'''
@@ -188,7 +187,7 @@ def generate_frames_file():
 
 		analyze_data(hip_angle_data, knee_angle_data, ankle_angle_data,
 		             deviation_angle_data, shin_varvalg_angle_data,
-		             (angle_femur_left, angle_femur_right))
+		             (angle_femur_left, angle_femur_right), bottom_frame)
 
 
 def front_view(cap2, mp_drawing2, mp_pose2, start_frame, end_frame,
@@ -261,8 +260,14 @@ def front_view(cap2, mp_drawing2, mp_pose2, start_frame, end_frame,
 
 
 def analyze_data(hip_angle, knee_angle, ankle_angle, dev_angle, vv_angle,
-                 deepest):
+                 deepest, bottom_frame):
+	analyzer = AnalyzeSquat(hip_angle, knee_angle, ankle_angle, dev_angle,
+	                   vv_angle,
+	             deepest, bottom_frame)
 
+	# Check for ailments
+	analyzer.test()
+	analyzer.make_profile()
 
 
 
