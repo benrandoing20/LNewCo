@@ -69,6 +69,7 @@ def generate_frames_file():
 	hip_angle_data = {"L": [], "R": []}
 	knee_angle_data = {"L": [], "R": []}
 	ankle_angle_data = {"L": [], "R": []}
+	shoulder_deviation_angle_data = []
 	deviation_angle_data = []
 	threshold = 160
 	hip_angle_min = threshold
@@ -110,7 +111,8 @@ def generate_frames_file():
 					knee_angle = get_knee_angle(landmarks, mp_pose)
 					ankle_angle = get_ankle_angle(landmarks, mp_pose)
 					deviation_angle = get_hipshin_angle(landmarks, mp_pose)
-
+					shoulder_deviation_angle = get_shoulder_angle(landmarks,
+					                                          mp_pose)
 					start_frame, end_frame = start_stop(landmarks, mp_pose,
 					                                    cap, start_frame,
 					                                    end_frame, threshold)
@@ -127,6 +129,8 @@ def generate_frames_file():
 						ankle_angle_data["R"].append(ankle_angle[1])
 
 						deviation_angle_data.append(deviation_angle)
+
+						shoulder_deviation_angle_data.append(shoulder_deviation_angle)
 
 						if hip_angle[0] < hip_angle_min:
 							# TODO: Refine This algorithmically to avoid
@@ -179,6 +183,7 @@ def generate_frames_file():
 		make_plot(knee_angle_data, "Knee")
 		make_plot(ankle_angle_data, "Ankle")
 		make_plot(deviation_angle_data, "Deviation")
+		make_plot(shoulder_deviation_angle_data, "Shoulder Deviation")
 
 		front_view(cap2, mp_drawing2, mp_pose2, start_frame, end_frame, shin_varvalg_angle_data)
 

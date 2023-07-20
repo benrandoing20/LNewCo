@@ -182,6 +182,42 @@ def get_varvalg_angle(landmarks, mp_pose):
 
 	return varvalg_angle_left, varvalg_angle_right
 
+def get_shoulder_angle(landmarks, mp_pose):
+	'''
+	Deviation Angle between Trunk Plane and Upper Leg PLane
+	'''
+	torso_landmarks = [landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value],
+	                          landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value],
+	                          landmarks[mp_pose.PoseLandmark.LEFT_HIP.value],
+	                          landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value]]
+
+	arms_landmarks = [landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value],
+	                         landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value],
+	                         landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value],
+	                         landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value]]
+
+	# Extract the x, y, and z coordinates of the landmarks
+	torso_coordinates = [(value.x, value.y, value.z) for value in
+	                     torso_landmarks]
+	arm_coordinates = [(value.x, value.y, value.z) for value in
+	                    arms_landmarks]
+
+	# Calculate the vector of the torso plane
+	torso_vector1 = np.subtract(torso_coordinates[0], torso_coordinates[1])
+	torso_vector2 = np.subtract(torso_coordinates[2], torso_coordinates[1])
+
+	# Calculate the vector of the shin plane
+	arm_vector1 = np.subtract(arm_coordinates[0], arm_coordinates[1])
+	arm_vector2 = np.subtract(arm_coordinates[2], arm_coordinates[1])
+
+	# Calculate the angle between the two planes
+	torso_plane_normal = np.cross(torso_vector1, torso_vector2)
+	arm_plane_normal = np.cross(arm_vector1, arm_vector2)
+
+	shoulder_deviation_angle = calculate_angle_plane(torso_plane_normal,
+	                                      arm_plane_normal)
+	return shoulder_deviation_angle
+
 
 ####################################################################
 ################## Angle Calculating Functions #####################

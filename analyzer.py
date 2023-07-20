@@ -21,8 +21,10 @@ class AnalyzeSquat():
 		self.interventions = {}
 		self.bottom_frame = bottom_frame
 		self.ailments_store = {
-			"not_deep_l": ["Did not reach a squat depth below horizontal L"],
-			"not_deep_r": ["Did not reach a squat depth below horizontal R"],
+			"not_deep_l": ["Did not reach a squat depth below horizontal L",
+			               "not_deep_l"],
+			"not_deep_r": ["Did not reach a squat depth below horizontal R",
+			               "not_deep_r"],
 			"depth_aym": ["Demonstrated asymmetry at squat base",
 			              "We recommend rolling out the weak side adductor "
 			              "and IT-Band as well as the strong side Biceps "
@@ -30,10 +32,24 @@ class AnalyzeSquat():
 			              "Please also consider strengthening exercises "
 			              "including weak side leg pulls and strong side "
 			              "leg pushes."],
-			"forward_lean": ["Forward lean of trunk"],
-			"backward_lean": ["Backward lean of trunk"],
-			"Varus": ["Demonstrated excess knee varus"],
-			"Valgus": ["Demonstrated excess knee valgus"]}
+			"forward_lean": ["Forward lean of trunk", "We recommend rolling "
+			                                          "out"
+			                                          "the gastrocnemius, "
+			                                          "soleus, and hip "
+			                                          "flexor. Please also "
+			                                          "consider "
+			                                          "strengthening with "
+			                                          "floor cobras."],
+			"Varus": ["Demonstrated excess knee varus", "We recommend rolling "
+			                                          "out"
+			                                          "the gastrocnemius, "
+			                                          "soleus, and Biceps "
+			                                          "Femorus."],
+			"Valgus": ["Demonstrated excess knee valgus", "We recommend rolling "
+			                                          "out"
+			                                          "the gastrocnemius, "
+			                                          "soleus, "
+			                                          "and Adductors."]}
 
 	def check_deep(self):
 		left = self.deep[0]
@@ -64,13 +80,14 @@ class AnalyzeSquat():
 	def bullet_point_list(self, items, pdf):
 		pdf.set_font("Arial", "B", 10)
 		for item in items:
-			pdf.cell(0, 10, "- " + item, ln=True)
+			pdf.cell(0, 10, "  - " + item, ln=True)
 
 	def headed_bullet_point_list(self, items_dict, pdf):
 		pdf.set_font("Arial", "B", 10)
-		for key, value in items_dict:
-			pdf.cell(0, 10, "- " + key, ln=True)
-			pdf.cell(0, 10, "- " + value, ln=True)
+		print(items_dict)
+		for key, value in items_dict.items():
+			pdf.cell(0, 10, "" + key, ln=True)
+			pdf.cell(0, 10, "  - " + value, ln=True)
 
 	def make_profile(self):
 		pdf_path = "profile.pdf"
