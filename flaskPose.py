@@ -19,7 +19,7 @@ import mediapipe as mp
 from PIL import Image
 import io
 
-app = Flask(__name__)
+`app = Flask(__name__)`
 
 # Initialize MediaPipe Drawing
 mp_drawing = mp.solutions.drawing_utils
