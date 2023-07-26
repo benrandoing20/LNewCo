@@ -82,7 +82,7 @@ def generate_frames_file():
 	angle_femur_left = None
 	angle_femur_right = None
 	bottom_frame = None
-
+	bottom_front = None
 
 	with mp_pose.Pose(min_detection_confidence=0.5,
 	                  min_tracking_confidence=0.5) as pose:
@@ -105,8 +105,6 @@ def generate_frames_file():
 					landmarks = results.pose_landmarks.landmark
 
 					# Calculate angles
-					# TODO: Consider if anything else can be passed to
-					#  functions to decrease functions size
 					hip_angle = get_hip_angle(landmarks, mp_pose)
 					knee_angle = get_knee_angle(landmarks, mp_pose)
 					ankle_angle = get_ankle_angle(landmarks, mp_pose)
@@ -116,6 +114,7 @@ def generate_frames_file():
 					start_frame, end_frame = start_stop(landmarks, mp_pose,
 					                                    cap, start_frame,
 					                                    end_frame, threshold)
+
 
 					# Crop and store hip angle data within the squat range
 					if start_frame != 0 and end_frame == 0:
@@ -185,18 +184,26 @@ def generate_frames_file():
 		make_plot(deviation_angle_data, "Deviation")
 		make_plot(shoulder_deviation_angle_data, "Shoulder Deviation")
 
-		front_view(cap2, mp_drawing2, mp_pose2, start_frame, end_frame, shin_varvalg_angle_data)
+		bottom_front = front_view(cap2, mp_drawing2, mp_pose2, start_frame,
+		                        end_frame,
+		           shin_varvalg_angle_data)
 
 		bottom_frame = cv2.cvtColor(bottom_frame, cv2.COLOR_BGR2RGB)
+		bottom_front = cv2.cvtColor(bottom_front, cv2.COLOR_BGR2RGB)
+
 		make_handout(angle_femur_left, angle_femur_right, bottom_frame)
 
 		analyze_data(hip_angle_data, knee_angle_data, ankle_angle_data,
 		             deviation_angle_data, shin_varvalg_angle_data,
-		             (angle_femur_left, angle_femur_right), bottom_frame)
+		             (angle_femur_left, angle_femur_right), bottom_frame, bottom_front)
 
 
 def front_view(cap2, mp_drawing2, mp_pose2, start_frame, end_frame,
                shin_varvalg_angle_data):
+
+	threshold = 160
+	hip_angle_min = threshold
+
 	with mp_pose2.Pose(min_detection_confidence=0.5,
 	                  min_tracking_confidence=0.5) as pose:
 		while cap2.isOpened():
@@ -220,15 +227,21 @@ def front_view(cap2, mp_drawing2, mp_pose2, start_frame, end_frame,
 					landmarksFr = resultsFr.pose_landmarks.landmark
 
 					# Calculate angles
-					# TODO: Consider if anything else can be passed to
-					#  functions to decrease functions size
 					shin_varvalg_angle = get_varvalg_angle(landmarksFr,
 					                                            mp_pose2)
+
+					hip_angle = get_hip_angle(landmarksFr, mp_pose2)
+
+					if hip_angle[0] < hip_angle_min:
+						# TODO: Refine This algorithmically to avoid
+						#  extra compute
+						hip_angle_min = hip_angle[0]
+						bottom_front = frameFr
 
 					# Crop and store hip angle data within the squat range
 					if frame_num >= start_frame and frame_num <= end_frame:
 						shin_varvalg_angle_data["L"].append(
-							shin_varvalg_angle[0])
+							-1 * shin_varvalg_angle[0])
 						shin_varvalg_angle_data["R"].append(
 							shin_varvalg_angle[1])
 
@@ -262,13 +275,14 @@ def front_view(cap2, mp_drawing2, mp_pose2, start_frame, end_frame,
 		cv2.destroyAllWindows()
 
 		make_plot(shin_varvalg_angle_data, "VarValg")
+		return bottom_front
 
 
 def analyze_data(hip_angle, knee_angle, ankle_angle, dev_angle, vv_angle,
-                 deepest, bottom_frame):
+                 deepest, bottom_frame, bottom_front):
 	analyzer = AnalyzeSquat(hip_angle, knee_angle, ankle_angle, dev_angle,
 	                   vv_angle,
-	             deepest, bottom_frame)
+	             deepest, bottom_frame, bottom_front)
 
 	# Check for ailments
 	analyzer.test()

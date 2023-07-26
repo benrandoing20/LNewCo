@@ -6,3 +6,6 @@ matplotlib
 scipy
 fpdf
 pillow
+requests
+jupyter
+pdfkit
