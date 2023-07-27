@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Overhead Squat Labelling</title>
+</head>
+<body>
+    <h1>Overhead Squat Labelling</h1>
+    <video controls width="300">
+        <source src="{{ video_url }}" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+
+    <video controls width="300">
+        <source src="{{ video_url_front }}" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+    <br>
+    <br>
+    <form action="/submit" method="post">
+        <label for="score">Score (0-10):</label>
+        <input type="number" id="score" name="score" min="0" max="10" required>
+        <br>
+        <br>
+        <label for="description">Description:</label>
+        <textarea id="description" name="description" rows="4" cols="50" required></textarea>
+        <br>
+        <input type="submit" value="Submit">
+    </form>
+</body>
+</html>
