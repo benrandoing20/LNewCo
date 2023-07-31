@@ -152,8 +152,8 @@ def get_deepfemur_angle(landmarks, mp_pose):
 	          landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value].y]
 
 	# Calculate angles
-	femur_angle_left = calculate_angle_horz(knee_l, hip_l)
-	femur_angle_right = calculate_angle_horz(knee_r, hip_r)
+	femur_angle_left = -1 * calculate_angle_horz(hip_l, knee_l)
+	femur_angle_right = -1 * calculate_angle_horz(hip_r, knee_r)
 
 	return femur_angle_left, femur_angle_right
 
@@ -216,7 +216,60 @@ def get_shoulder_angle(landmarks, mp_pose):
 
 	shoulder_deviation_angle = calculate_angle_plane(torso_plane_normal,
 	                                      arm_plane_normal)
+
+	shoulder_deviation_angle = 180 - shoulder_deviation_angle # must adjust
+	# due to angle right vector being positive
+
 	return shoulder_deviation_angle
+
+def get_foot_angle(landmarks, mp_pose):
+	'''
+	Angle of Foot (Toe - Heel) with respect to horizontal
+	'''
+	# Get coordinates Left
+	heel_l = [landmarks[mp_pose.PoseLandmark.LEFT_HEEL.value].x,
+	          landmarks[mp_pose.PoseLandmark.LEFT_HEEL.value].y]
+
+	toe_l = [landmarks[mp_pose.PoseLandmark.LEFT_FOOT_INDEX.value].x,
+	          landmarks[mp_pose.PoseLandmark.LEFT_FOOT_INDEX.value].y]
+
+	# Get coordinates Right
+	heel_r = [landmarks[mp_pose.PoseLandmark.RIGHT_HEEL.value].x,
+	          landmarks[mp_pose.PoseLandmark.RIGHT_HEEL.value].y]
+
+	toe_r = [landmarks[mp_pose.PoseLandmark.RIGHT_FOOT_INDEX.value].x,
+	          landmarks[mp_pose.PoseLandmark.RIGHT_FOOT_INDEX.value].y]
+
+	# Calculate angles
+	foot_angle_left = calculate_angle_horz(heel_l, toe_l)
+	foot_angle_right = calculate_angle_horz(heel_r, toe_r)
+
+	return foot_angle_left, foot_angle_right
+
+def get_inout_angle(landmarks, mp_pose):
+	'''
+	Angle of Foot (Toe - Heel) with respect to horizontal
+	'''
+	# Get coordinates Left
+	heel_l = [landmarks[mp_pose.PoseLandmark.LEFT_HEEL.value].y,
+	          landmarks[mp_pose.PoseLandmark.LEFT_HEEL.value].z]
+
+	toe_l = [landmarks[mp_pose.PoseLandmark.LEFT_FOOT_INDEX.value].y,
+	          landmarks[mp_pose.PoseLandmark.LEFT_FOOT_INDEX.value].z]
+
+	# Get coordinates Right
+	heel_r = [landmarks[mp_pose.PoseLandmark.RIGHT_HEEL.value].y,
+	          landmarks[mp_pose.PoseLandmark.RIGHT_HEEL.value].z]
+
+	toe_r = [landmarks[mp_pose.PoseLandmark.RIGHT_FOOT_INDEX.value].y,
+	          landmarks[mp_pose.PoseLandmark.RIGHT_FOOT_INDEX.value].z]
+
+	# Calculate angles
+	foot_angle_left = calculate_angle_in(heel_l, toe_l)
+	foot_angle_right = calculate_angle_in(heel_r, toe_r)
+
+	return foot_angle_left, foot_angle_right
+
 
 
 ####################################################################
@@ -293,9 +346,9 @@ def calculate_angle_horz(point1, point2):
         degree_angle *= orientation
 
         if degree_angle > 180.0:
-            degree_angle = 360 - degree_angle
-        elif degree_angle < 0:
-            degree_angle = (degree_angle + 180) * -1
+            degree_angle = 360 - degree_angle # keeps between 0 and 180
+        # elif degree_angle < 0:
+        #     degree_angle = (degree_angle + 180) * -1
 
         return degree_angle
 
@@ -303,6 +356,46 @@ def calculate_angle_horz(point1, point2):
         return 90.0
 
 def calculate_angle_vert(point1, point2):
+	'''
+	Calculate angle between lines and ground
+	'''
+	if point1 == (0, 0) or point2 == (0, 0):
+		return 0
+
+	# Calculate vector
+	vector1 = (point1[0] - point2[0], point1[1] - point2[1])
+	vector2 = (0, 1)
+
+	# Calculate dot product
+	dot_product = vector1[0] * vector2[0] + vector1[1] * vector2[1]
+
+	# Calculate magnitudes
+	magnitude1 = np.sqrt(vector1[0] ** 2 + vector1[1] ** 2)
+	magnitude2 = np.sqrt(vector2[0] ** 2 + vector2[1] ** 2)
+
+	try:
+		# Calculate cosine of the angle
+		cosine_angle = dot_product / (magnitude1 * magnitude2)
+
+		# Calculate angle in radians
+		radian_angle = np.arccos(cosine_angle)
+
+		# Convert angle to degrees
+		degree_angle = np.degrees(radian_angle)
+
+		# Determine the sign of the angle
+		orientation = np.sign(vector1[0])
+		degree_angle *= orientation
+
+		if degree_angle > 180.0:
+			degree_angle = 360 - degree_angle
+
+		return degree_angle
+
+	except ZeroDivisionError:
+		return 90.0
+
+def calculate_angle_in(point1, point2):
 	'''
 	Calculate angle between lines and ground
 	'''
