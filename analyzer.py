@@ -15,11 +15,13 @@ class AnalyzeSquat():
 	######################################################################
 	######################## Init and Variable Declare ###################
 
-	def __init__(self, hip, knee, ankle, dev, vv, deep, bottom_frame, base_frame):
+	def __init__(self, hip, knee, ankle, dev, devs, vv, deep, bottom_frame,
+	             base_frame):
 		self.hip = hip
 		self.knee = knee
 		self.ankle = ankle
 		self.dev = dev
+		self.devs = devs
 		self.deep = deep
 		self.vv = vv
 		self.squat_profile = []
@@ -27,9 +29,12 @@ class AnalyzeSquat():
 		self.interventions = {}
 		self.bottom_frame = bottom_frame
 		self.base_frame = base_frame
+		self.asym_max = 5000
 		self.assymetric_score = {"hip_angle": 0.0, "knee_angle": 0.0,
 		                         "ankle_angle": 0.0, "deep_diff": 0.0,
 		                         "vert_offset": 0.0}
+		self.knee_score = {"left_knee": 0.0, "right_knee": 0.0}
+		self.core_score = {"deviation": 0.0, "arms": 0.0}
 		self.final_scores = {"asymmetric_score": 0, "knee_stability_score":
 							 0, "core_strength_score": 0, "squat_score": 50}
 		self.ailments_store = {
@@ -74,89 +79,129 @@ class AnalyzeSquat():
 		diff = right - left # right positive convention
 		print(diff)
 
-		if -5 < diff < 5:
-			self.assymetric_score["deep_diff"] = 3
-		elif 0 < diff <= 10:
-			self.assymetric_score["deep_diff"] = 4
-		elif -10 <= diff < 0:
-			self.assymetric_score["deep_diff"] = 2
-		elif diff > 10:
-			self.assymetric_score["deep_diff"] = 5
-		elif diff < -10:
-			self.assymetric_score["deep_diff"] = 1
+		self.assymetric_score["deep_diff"] = diff
 
 	def check_hip(self):
 		hip_data = self.hip
 		right_hip_area = trapz(hip_data["R"])
 		left_hip_area = trapz(hip_data["L"])
 
-		hip_auc_diff = right_hip_area - left_hip_area
-		print(hip_auc_diff)
+		hip_right_norm = np.array(hip_data["R"] / trapz(hip_data["R"]))
+		hip_left_norm = np.array(hip_data["L"] / trapz(hip_data["L"]))
 
-		if -500 < hip_auc_diff < 500:
-			self.assymetric_score["hip_angle"] = 3
-		elif 0 < hip_auc_diff <= 1000:
-			self.assymetric_score["hip_angle"] = 4
-		elif -1000 <= hip_auc_diff < 0:
-			self.assymetric_score["hip_angle"] = 2
-		elif hip_auc_diff > 1000:
-			self.assymetric_score["hip_angle"] = 5
-		elif hip_auc_diff < -1000:
-			self.assymetric_score["hip_angle"] = 1
+		hip_auc = (right_hip_area - left_hip_area) / ((right_hip_area
+		                                                      +
+		                                                       left_hip_area) / 2)
+		print(hip_auc)
+
+
+		hip_conv = np.convolve(hip_right_norm, hip_left_norm, mode='full')
+
+		hip_conv_max = np.max(hip_conv)
+		hip_conv_min = np.min(hip_conv)
+		hip_conv_asym = 1 - (hip_conv_max - hip_conv_min) / 0.02
+		print(hip_conv_asym)
+
+		hip_asymmetry = (0.6 * hip_conv_asym + 0.4 * np.abs(hip_auc)) * \
+		                np.sign(hip_auc)
+
+		print(hip_asymmetry)
+
+		self.assymetric_score["hip_angle"] = 50 + hip_asymmetry * 50
+		print(self.assymetric_score["hip_angle"])
 
 	def check_knee(self):
 		knee_data = self.knee
 		right_knee_area = trapz(knee_data["R"])
 		left_knee_area = trapz(knee_data["L"])
 
-		knee_auc_diff = right_knee_area - left_knee_area
-		print(knee_auc_diff)
+		knee_right_norm = np.array(knee_data["R"] / trapz(knee_data["R"]))
+		knee_left_norm = np.array(knee_data["L"] / trapz(knee_data["L"]))
 
-		if -500 < knee_auc_diff < 500:
-			self.assymetric_score["knee_angle"] = 3
-		elif 0 < knee_auc_diff <= 1000:
-			self.assymetric_score["knee_angle"] = 4
-		elif -1000 <= knee_auc_diff < 0:
-			self.assymetric_score["knee_angle"] = 2
-		elif knee_auc_diff > 10000:
-			self.assymetric_score["knee_angle"] = 5
-		elif knee_auc_diff < -10000:
-			self.assymetric_score["knee_angle"] = 1
+		knee_auc = (right_knee_area - left_knee_area) / ((right_knee_area
+		                                                  + left_knee_area)
+		                                                 / 2)
+		print(knee_auc)
+
+		knee_conv = np.convolve(knee_right_norm, knee_left_norm, mode='full')
+
+
+		knee_conv_max = np.max(knee_conv)
+		knee_conv_min = np.min(knee_conv)
+		knee_conv_asym = 1 - (knee_conv_max - knee_conv_min) / 0.02
+		print(knee_conv_asym)
+
+		knee_asymmetry = (0.6 * knee_conv_asym + 0.4 * np.abs(knee_auc)) * \
+		                np.sign(knee_auc)
+
+		print(knee_asymmetry)
+
+		self.assymetric_score["knee_angle"] = 50 + knee_asymmetry * 50
+
+		print(self.assymetric_score["knee_angle"])
 
 	def check_ankle(self):
 		ankle_data = self.ankle
 		right_ankle_area = trapz(ankle_data["R"])
 		left_ankle_area = trapz(ankle_data["L"])
 
-		ankle_auc_diff = right_ankle_area - left_ankle_area
-		print(ankle_auc_diff)
+		ankle_right_norm = np.array(ankle_data["R"] / trapz(ankle_data["R"]))
+		ankle_left_norm = np.array(ankle_data["L"] / trapz(ankle_data["L"]))
 
-		if -500 < ankle_auc_diff < 500:
-			self.assymetric_score["ankle_angle"] = 3
-		elif 0 < ankle_auc_diff <= 1000:
-			self.assymetric_score["ankle_angle"] = 4
-		elif -1000 <= ankle_auc_diff < 0:
-			self.assymetric_score["ankle_angle"] = 2
-		elif ankle_auc_diff > 1000:
-			self.assymetric_score["ankle_angle"] = 5
-		elif ankle_auc_diff < -1000:
-			self.assymetric_score["ankle_angle"] = 1
+		ankle_auc = (right_ankle_area - left_ankle_area) / ((right_ankle_area
+		                                                  + left_ankle_area) / 2)
+		print(ankle_auc)
+
+		ankle_conv = np.convolve(ankle_right_norm, ankle_left_norm,
+		                         mode='full')
+
+		ankle_conv_max = np.max(ankle_conv)
+		ankle_conv_min = np.min(ankle_conv)
+		ankle_conv_asym = 1 - (ankle_conv_max - ankle_conv_min) / 0.02
+		print(ankle_conv_asym)
+
+		ankle_asymmetry = (0.6 * ankle_conv_asym + 0.4 * np.abs(ankle_auc)) * \
+		                 np.sign(ankle_auc)
+
+		print(ankle_asymmetry)
+		self.assymetric_score["ankle_angle"] = 50 + ankle_asymmetry * 50
+
+		print(self.assymetric_score["ankle_angle"])
 
 	# def check_Asym(self):
 	# 	# TODO: Hip y coord Asymmetry Value -> Bin -> Save in Asymmetry Outputs
 	#
-	# ######################## Knee Stability Creation ##################
-	# def check_VarValg(self):
-	# 	# TODO: Varus and Valgus Angle check angle Value -> Bin -> Knee Out
-	#
-	#
-	# ######################## Knee Stability Creation ##################
-	# def check_ForDev(self):
-	# 	# TODO: Forward Deviation Angle check angle Asymmetry Value -> Bin ->
-	#
-	# def check_ArmsFor(self):
-	# 	# TODO: Forward Arms Angle check angle Asymmetry Value -> Bin ->
+	######################## Knee Stability Creation ##################
+	def check_VarValg(self):
+		knee_bend = self.vv
+		knee_bend_left_abs = [abs(elem) for elem in knee_bend["L"]]
+		knee_bend_left = trapz(knee_bend_left_abs)
+		knee_bend_right_abs = [abs(elem) for elem in knee_bend["R"]]
+		knee_bend_right = trapz(knee_bend_right_abs)
 
+		self.knee_score["left_knee"] = knee_bend_left
+		self.knee_score["right_knee"] = knee_bend_right
+
+	######################## Core Strength Creation ##################
+	def check_ForDev(self):
+		dev = self.dev
+		abs_dev = np.abs(dev)
+		dev_score = 100 - (trapz(abs_dev) / 200)
+		dev_sign = np.sign(np.mean(abs_dev))
+		print(dev_score)
+
+		self.core_score["deviation"] = dev_score * dev_sign
+		print(self.core_score["deviation"])
+
+	def check_ArmsFor(self):
+		dev = self.dev
+		abs_dev = np.abs(dev)
+		dev_score = 100 - (trapz(abs_dev) / 200)
+		dev_sign = np.sign(np.mean(abs_dev))
+		print(dev_score)
+
+		self.core_score["deviation"] = dev_score * dev_sign
+		print(self.core_score["deviation"])
 	###################################################################
 	######################## Aggregate Sub scores #####################
 
@@ -165,16 +210,26 @@ class AnalyzeSquat():
 		self.check_hip()
 		self.check_knee()
 		self.check_ankle()
+		self.check_VarValg()
+		self.check_ForDev()
 
-		asym_max = 20
-		knee = 0
-		core = 0
+		# Asymmetry Score
 		for key, value in self.assymetric_score.items():
+			if key == "deep_diff":
+				continue
 			self.final_scores["asymmetric_score"] += value
-		self.final_scores["asymmetric_score"] /= asym_max
-		self.final_scores["asymmetric_score"] *= 100
+		self.final_scores["asymmetric_score"] /= 3
 
+		# Knee Stability Score
+		for key, value in self.knee_score.items():
+			self.final_scores["knee_stability_score"] += value
+		self.final_scores["knee_stability_score"] /= 2
+		print(self.final_scores["knee_stability_score"])
 
+		# Core Stability Score
+		for key, value in self.core_score.items():
+			self.final_scores["core_strength_score"] += value
+		print(self.final_scores["core_strength_score"])
 
 
 	###################################################################
@@ -184,9 +239,12 @@ class AnalyzeSquat():
 		self.create_bullet_list()
 		self.create_recs_dictionary()
 		self.agg_scores()
-		self.create_gauge_chart(50, 100, 33, 67, 'Squat.png')
-		self.create_gauge_chart(50, 100, 33, 67, 'Core.png')
-		self.create_gauge_chart_sym(50, 100, 20, 40, 'KneeStability.png')
+		self.create_gauge_chart(self.final_scores[
+			"squat_score"], 100, 33, 67, 'Squat.png')
+		self.create_gauge_chart(self.final_scores[
+			"core_strength_score"], 100, 33, 67, 'Core.png')
+		self.create_gauge_chart_sym(self.final_scores[
+			"knee_stability_score"], 100, 20, 40, 'KneeStability.png')
 		self.create_gauge_chart_sym(self.final_scores[
 			"asymmetric_score"], 100, 20, 40, 'Asymmetry.png')
 
