@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Overhead Squat Labelling</title>
+</head>
+<body>
+    <h1>Overhead Squat Labelling</h1>
+    <video controls width="300">
+        <source src="{{ video_url }}" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+
+    <video controls width="300">
+        <source src="{{ video_url_front }}" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+    <br>
+    <br>
+    <form action="/submit/{{ index }}" method="post">
+        <label for="score">Squat Score (0-10) 10 is Best:</label>
+        <input type="number" id="score" name="score" min="0" max="10" required>
+        <br>
+        <br>
+        <label for="asym">Asymmetry Score(0-10) 5 is Best, 10 R, 0 L:</label>
+        <input type="number" id="asym" name="asym" min="0" max="10"
+               required>
+        <br>
+        <br>
+        <label for="core">Core Strength Score (0-10) 10 is Best:</label>
+        <input type="number" id="core" name="core" min="0" max="10"
+               required>
+        <br>
+        <br>
+        <label for="knee">Knee Stability Score (0-10) 5 is Best, 10 R, 0
+            L:</label>
+        <input type="number" id="knee" name="knee" min="0" max="10"
+               required>
+        <br>
+        <br>
+        <label for="description">Description:</label>
+        <textarea id="description" name="description" rows="4" cols="50" required></textarea>
+        <br>
+        <input type="submit" value="Submit and go to Next Squat">
+    </form>
+</body>
+</html>

@@ -71,6 +71,8 @@ def generate_frames_file():
 	ankle_angle_data = {"L": [], "R": []}
 	shoulder_deviation_angle_data = []
 	deviation_angle_data = []
+	foot_angle_data = {"L": [], "R": []}
+	foot_inout_data = {"L": [], "R": []}
 	threshold = 160
 	hip_angle_min = threshold
 
@@ -82,7 +84,6 @@ def generate_frames_file():
 	angle_femur_left = None
 	angle_femur_right = None
 	bottom_frame = None
-	bottom_front = None
 
 	with mp_pose.Pose(min_detection_confidence=0.5,
 	                  min_tracking_confidence=0.5) as pose:
@@ -111,6 +112,8 @@ def generate_frames_file():
 					deviation_angle = get_hipshin_angle(landmarks, mp_pose)
 					shoulder_deviation_angle = get_shoulder_angle(landmarks,
 					                                          mp_pose)
+					foot_angle = get_foot_angle(landmarks, mp_pose)
+					foot_inout = get_inout_angle(landmarks, mp_pose)
 					start_frame, end_frame = start_stop(landmarks, mp_pose,
 					                                    cap, start_frame,
 					                                    end_frame, threshold)
@@ -131,9 +134,13 @@ def generate_frames_file():
 
 						shoulder_deviation_angle_data.append(shoulder_deviation_angle)
 
+						foot_angle_data["L"].append(foot_angle[0])
+						foot_angle_data["R"].append(foot_angle[1])
+
+						foot_inout_data["L"].append(foot_inout[0])
+						foot_inout_data["R"].append(foot_inout[1])
+
 						if hip_angle[0] < hip_angle_min:
-							# TODO: Refine This algorithmically to avoid
-							#  extra compute
 							hip_angle_min = hip_angle[0]
 							bottom_frame = frame
 							angle_femur_left, angle_femur_right = get_deepfemur_angle(
@@ -183,6 +190,8 @@ def generate_frames_file():
 		make_plot(ankle_angle_data, "Ankle")
 		make_plot(deviation_angle_data, "Deviation")
 		make_plot(shoulder_deviation_angle_data, "Shoulder Deviation")
+		make_plot(foot_angle_data, "Foot")
+		make_plot(foot_inout_data, "Foot Rotation")
 
 		bottom_front = front_view(cap2, mp_drawing2, mp_pose2, start_frame,
 		                        end_frame,
@@ -233,8 +242,6 @@ def front_view(cap2, mp_drawing2, mp_pose2, start_frame, end_frame,
 					hip_angle = get_hip_angle(landmarksFr, mp_pose2)
 
 					if hip_angle[0] < hip_angle_min:
-						# TODO: Refine This algorithmically to avoid
-						#  extra compute
 						hip_angle_min = hip_angle[0]
 						bottom_front = frameFr
 
@@ -295,12 +302,12 @@ def make_plot(angle_data, name):
 	if (type(angle_data) is dict):
 		plt.plot(angle_data["L"])
 		plt.plot(angle_data["R"])
+		plt.legend(["Left", "Right"])
 	else:
 		plt.plot(angle_data)
 	plt.xlabel('Frame')
 	plt.ylabel(name + ' Angle (degrees)')
 	plt.title(name + ' Angle during Squat')
-	plt.legend(["Left", "Right"])
 	plt.savefig(name + "_angle.png")
 	plt.show()
 	plt.close()
@@ -385,8 +392,21 @@ def make_handout(fl, fr, bottom_frame):
 
 	pdf.add_page()
 
+	file_names = ["shoulder deviation", "foot", "foot rotations"]
+
+	# Save the plot as an image
+	for i, name in enumerate(file_names):
+		plot_image_path = name + "_angle.png"
+
+		# Add the plot image to the PDF
+		pdf.image(plot_image_path, x=(10 + (90 * (i % 2))),
+		          y=(10 + (70 * np.floor(i / 2))),
+		          w=100,
+		          h=75)
+
 	# Save the PDF file
 	pdf.output(pdf_path)
 
 if __name__ == '__main__':
 	generate_frames_file()
+
