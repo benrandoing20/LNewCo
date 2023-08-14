@@ -10,6 +10,11 @@ from PIL import Image
 from angle_calc import *
 import traceback
 from analyzer import AnalyzeSquat
+import os
+import pandas as pd
+import csv
+
+
 
 def file_import(path):
 	'''
@@ -18,7 +23,6 @@ def file_import(path):
 	cap = cv2.VideoCapture(path)
 
 	return cap
-
 
 def start_stop(landmarks, mp_pose, cap, start_frame, end_frame, threshold):
 	threshold_angle_hip = threshold
@@ -45,14 +49,43 @@ def start_stop(landmarks, mp_pose, cap, start_frame, end_frame, threshold):
 
 	return start_frame, end_frame
 
+
+def get_filenames():
+	import os
+
+	directory = 'data/'
+	subdirectories = [os.path.join(directory, subdir) for subdir in os.listdir(directory) if os.path.isdir(os.path.join(directory, subdir))]
+	file_list = []
+
+	for subdir in subdirectories:
+		if os.path.exists(subdir) and os.path.isdir(subdir):
+			files = sorted(os.listdir(subdir))
+			file_list.extend([(files[i], files[i + 1], subdir) for i in
+			                  range(0, len(files), 2)])
+
+	return file_list
+
+
 def generate_frames_file():
 	'''
 	Creates Pose Estimates for a Single Video File with output handout
 	'''
-	filename_side = "IMG_6783.mov"
-	filename_front = "IMG_6784.mov"
-	cap = file_import(filename_side)
-	cap2 = file_import(filename_front)
+
+	file_list = get_filenames()
+	print(file_list)
+
+	# for filenames in file_list:
+
+	# filename_side = filenames[0]
+	# filename_front = filenames[1]
+	# qualitative_label = filenames[2]
+
+	filename_side = 'IMG_7038.mov'
+	filename_front = 'IMG_7039.mov'
+	qualitative_label = 'data/good'
+
+	cap = file_import(qualitative_label + '/' + filename_side)
+	cap2 = file_import(qualitative_label + '/' + filename_front)
 
 	# Initialize MediaPipe Drawing
 	mp_drawing = mp.solutions.drawing_utils
@@ -72,18 +105,24 @@ def generate_frames_file():
 	shoulder_deviation_angle_data = []
 	deviation_angle_data = []
 	foot_angle_data = {"L": [], "R": []}
-	foot_inout_data = {"L": [], "R": []}
+
 	threshold = 160
 	hip_angle_min = threshold
 
+
+
 	# Computed with the Front View
 	shin_varvalg_angle_data = {"L": [], "R": []}
+	foot_inout_data = {"L": [], "R": []}
 
 
-	global bottom_frame, angle_femur_left, angle_femur_right
+	global bottom_frame, angle_femur_left, angle_femur_right, torso_min, \
+		shoulder_min
 	angle_femur_left = None
 	angle_femur_right = None
 	bottom_frame = None
+	torso_min = None
+	shoulder_min = None
 
 	with mp_pose.Pose(min_detection_confidence=0.5,
 	                  min_tracking_confidence=0.5) as pose:
@@ -113,7 +152,6 @@ def generate_frames_file():
 					shoulder_deviation_angle = get_shoulder_angle(landmarks,
 					                                          mp_pose)
 					foot_angle = get_foot_angle(landmarks, mp_pose)
-					foot_inout = get_inout_angle(landmarks, mp_pose)
 					start_frame, end_frame = start_stop(landmarks, mp_pose,
 					                                    cap, start_frame,
 					                                    end_frame, threshold)
@@ -137,23 +175,57 @@ def generate_frames_file():
 						foot_angle_data["L"].append(foot_angle[0])
 						foot_angle_data["R"].append(foot_angle[1])
 
-						foot_inout_data["L"].append(foot_inout[0])
-						foot_inout_data["R"].append(foot_inout[1])
-
 						if hip_angle[0] < hip_angle_min:
 							hip_angle_min = hip_angle[0]
+
 							bottom_frame = frame
+
+							# Draw on Bottom Frame
+							mp_drawing.draw_landmarks(bottom_frame,
+							                          results.pose_landmarks,
+							                          mp_pose.POSE_CONNECTIONS,
+							                          mp_drawing.DrawingSpec(
+								                          color=(245, 117, 66),
+								                          thickness=2,
+								                          circle_radius=2),
+							                          mp_drawing.DrawingSpec(
+								                          color=(245, 66, 230),
+								                          thickness=2,
+								                          circle_radius=2)
+							                          )
+
 							angle_femur_left, angle_femur_right = get_deepfemur_angle(
 								landmarks,
 								mp_pose)
+							torso_min = deviation_angle
+							shoulder_min = shoulder_deviation_angle
 
-					# TODO: Consider making this plot on screen again ie: if recording of poses is saved
-					# # Visualize angle of hip_angle at the hip
-					# cv2.putText(image, str(hip_angle),
-					#             tuple(
-					# 	            np.multiply(hip, [640, 480]).astype(int)),
-					#             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2,
-					#             cv2.LINE_AA)
+							squat_depth = np.round((angle_femur_left +
+							               angle_femur_right) / 2)
+
+							print(squat_depth)
+
+							# Visualize angle of hip_angle at the hip
+							cv2.putText(bottom_frame, "Depth: ",
+							            tuple(
+							            np.multiply([landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x,
+	                                    landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y],
+				                        [1250, 1920]).astype(int)),
+							            cv2.FONT_HERSHEY_SIMPLEX, 2, (245, 66, 230), 2,
+							            cv2.LINE_AA)
+
+							# Visualize angle of hip_angle at the hip
+							cv2.putText(bottom_frame, str(squat_depth),
+							            tuple(
+								            np.multiply([landmarks[
+									                         mp_pose.PoseLandmark.LEFT_HIP.value].x,
+								                         landmarks[
+									                         mp_pose.PoseLandmark.LEFT_HIP.value].y],
+								                        [1250, 2000]).astype(
+									            int)),
+							            cv2.FONT_HERSHEY_SIMPLEX, 2,
+							            (245, 66, 230), 2,
+							            cv2.LINE_AA)
 
 				except Exception as e:
 					traceback.print_exc()
@@ -172,15 +244,16 @@ def generate_frames_file():
 					                          circle_radius=2)
 				                          )
 
+
 				# Display the image
 				cv2.imshow('Squat Video', image)
 				if cv2.waitKey(1) & 0xFF == ord('q'):
 					break
 
-
 			except Exception as e:
 				traceback.print_exc()
 				break
+
 
 		cap.release()
 		cv2.destroyAllWindows()
@@ -191,27 +264,37 @@ def generate_frames_file():
 		make_plot(deviation_angle_data, "Deviation")
 		make_plot(shoulder_deviation_angle_data, "Shoulder Deviation")
 		make_plot(foot_angle_data, "Foot")
-		make_plot(foot_inout_data, "Foot Rotation")
 
-		bottom_front = front_view(cap2, mp_drawing2, mp_pose2, start_frame,
+		bottom_front, knee_vv_min = front_view(cap2, mp_drawing2, mp_pose2,
+		                               start_frame,
 		                        end_frame,
-		           shin_varvalg_angle_data)
+		           shin_varvalg_angle_data, foot_inout_data)
 
 		bottom_frame = cv2.cvtColor(bottom_frame, cv2.COLOR_BGR2RGB)
 		bottom_front = cv2.cvtColor(bottom_front, cv2.COLOR_BGR2RGB)
 
 		make_handout(angle_femur_left, angle_femur_right, bottom_frame)
 
+		print(torso_min)
+		print(shoulder_min)
+
+
 		analyze_data(hip_angle_data, knee_angle_data, ankle_angle_data,
-		             deviation_angle_data, shin_varvalg_angle_data,
-		             (angle_femur_left, angle_femur_right), bottom_frame, bottom_front)
+		             deviation_angle_data, shoulder_deviation_angle_data,
+		             torso_min, shoulder_min,
+		             shin_varvalg_angle_data,
+		             (angle_femur_left, angle_femur_right),
+		             knee_vv_min, bottom_frame, bottom_front, filename_side,
+		             filename_front, foot_angle_data, foot_inout_data,
+		             qualitative_label)
 
 
 def front_view(cap2, mp_drawing2, mp_pose2, start_frame, end_frame,
-               shin_varvalg_angle_data):
+               shin_varvalg_angle_data, foot_inout_data):
 
 	threshold = 160
 	hip_angle_min = threshold
+	knee_vv_min = threshold
 
 	with mp_pose2.Pose(min_detection_confidence=0.5,
 	                  min_tracking_confidence=0.5) as pose:
@@ -239,11 +322,29 @@ def front_view(cap2, mp_drawing2, mp_pose2, start_frame, end_frame,
 					shin_varvalg_angle = get_varvalg_angle(landmarksFr,
 					                                            mp_pose2)
 
+					foot_inout = get_inout_angle(landmarksFr, mp_pose2)
+
 					hip_angle = get_hip_angle(landmarksFr, mp_pose2)
 
 					if hip_angle[0] < hip_angle_min:
 						hip_angle_min = hip_angle[0]
 						bottom_front = frameFr
+
+						# Draw on Bottom Frame
+						mp_drawing2.draw_landmarks(bottom_front,
+						                          resultsFr.pose_landmarks,
+						                          mp_pose2.POSE_CONNECTIONS,
+						                          mp_drawing2.DrawingSpec(
+							                          color=(245, 117, 66),
+							                          thickness=2,
+							                          circle_radius=2),
+						                          mp_drawing2.DrawingSpec(
+							                          color=(245, 66, 230),
+							                          thickness=2,
+							                          circle_radius=2)
+						                          )
+
+						knee_vv_min = shin_varvalg_angle
 
 					# Crop and store hip angle data within the squat range
 					if frame_num >= start_frame and frame_num <= end_frame:
@@ -251,6 +352,9 @@ def front_view(cap2, mp_drawing2, mp_pose2, start_frame, end_frame,
 							-1 * shin_varvalg_angle[0])
 						shin_varvalg_angle_data["R"].append(
 							shin_varvalg_angle[1])
+
+						foot_inout_data["L"].append(foot_inout[0])
+						foot_inout_data["R"].append(foot_inout[1])
 
 				except Exception as e:
 					traceback.print_exc()
@@ -271,6 +375,7 @@ def front_view(cap2, mp_drawing2, mp_pose2, start_frame, end_frame,
 
 				# Display the image
 				cv2.imshow('Squat Video Front', imageFr)
+
 				if cv2.waitKey(1) & 0xFF == ord('q'):
 					break
 
@@ -282,14 +387,21 @@ def front_view(cap2, mp_drawing2, mp_pose2, start_frame, end_frame,
 		cv2.destroyAllWindows()
 
 		make_plot(shin_varvalg_angle_data, "VarValg")
-		return bottom_front
+		make_plot(foot_inout_data, "Foot Rotation")
+
+		return bottom_front, knee_vv_min
 
 
-def analyze_data(hip_angle, knee_angle, ankle_angle, dev_angle, vv_angle,
-                 deepest, bottom_frame, bottom_front):
+def analyze_data(hip_angle, knee_angle, ankle_angle, dev_angle, dev_shoulder,
+			torso_min, shoulder_min,
+			vv_angle, deepest, knee_vv_min, bottom_frame, bottom_front,
+			filename_side, filename_front, foot_angle, inout_angle, label):
+
 	analyzer = AnalyzeSquat(hip_angle, knee_angle, ankle_angle, dev_angle,
-	                   vv_angle,
-	             deepest, bottom_frame, bottom_front)
+			dev_shoulder, torso_min, shoulder_min, vv_angle, deepest,
+			knee_vv_min, bottom_frame, bottom_front,
+			filename_side,
+			filename_front, foot_angle, inout_angle, label)
 
 	# Check for ailments
 	analyzer.test()
@@ -392,7 +504,7 @@ def make_handout(fl, fr, bottom_frame):
 
 	pdf.add_page()
 
-	file_names = ["shoulder deviation", "foot", "foot rotations"]
+	file_names = ["shoulder deviation", "foot", "foot rotation"]
 
 	# Save the plot as an image
 	for i, name in enumerate(file_names):
