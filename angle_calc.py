@@ -251,17 +251,17 @@ def get_inout_angle(landmarks, mp_pose):
 	Angle of Foot (Toe - Heel) with respect to horizontal
 	'''
 	# Get coordinates Left
-	heel_l = [landmarks[mp_pose.PoseLandmark.LEFT_HEEL.value].y,
+	heel_l = [landmarks[mp_pose.PoseLandmark.LEFT_HEEL.value].x,
 	          landmarks[mp_pose.PoseLandmark.LEFT_HEEL.value].z]
 
-	toe_l = [landmarks[mp_pose.PoseLandmark.LEFT_FOOT_INDEX.value].y,
+	toe_l = [landmarks[mp_pose.PoseLandmark.LEFT_FOOT_INDEX.value].x,
 	          landmarks[mp_pose.PoseLandmark.LEFT_FOOT_INDEX.value].z]
 
 	# Get coordinates Right
-	heel_r = [landmarks[mp_pose.PoseLandmark.RIGHT_HEEL.value].y,
+	heel_r = [landmarks[mp_pose.PoseLandmark.RIGHT_HEEL.value].x,
 	          landmarks[mp_pose.PoseLandmark.RIGHT_HEEL.value].z]
 
-	toe_r = [landmarks[mp_pose.PoseLandmark.RIGHT_FOOT_INDEX.value].y,
+	toe_r = [landmarks[mp_pose.PoseLandmark.RIGHT_FOOT_INDEX.value].x,
 	          landmarks[mp_pose.PoseLandmark.RIGHT_FOOT_INDEX.value].z]
 
 	# Calculate angles
@@ -424,11 +424,11 @@ def calculate_angle_in(point1, point2):
 		degree_angle = np.degrees(radian_angle)
 
 		# Determine the sign of the angle
-		orientation = np.sign(vector1[0])
+		orientation = np.sign(vector1[1])
 		degree_angle *= orientation
 
-		if degree_angle > 180.0:
-			degree_angle = 360 - degree_angle
+		# if degree_angle > 180.0:
+		# 	degree_angle = 360 - degree_angle
 
 		return degree_angle
 

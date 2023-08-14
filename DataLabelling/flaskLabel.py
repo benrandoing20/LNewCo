@@ -14,12 +14,14 @@ HEADER = ['Filename Side', 'Filename Front', 'Squat Score',
           'Knee Stability', 'Core Strength', 'Asymmetry Score', 'Description']
 
 # TODO: make user input filename, and check that is not already a filename
-CSV_FILE = "data.csv"
+CSV_FILE = "sam_data.csv"
 START_INDEX = 0
 
 # Get a list of all files and directories in the folder
 all_items = os.listdir(VID_FOLDER)
 all_items = sorted(all_items)
+
+print(all_items)
 
 # Filter out only the filenames (excluding directories)
 file_list = [os.path.join(
@@ -27,7 +29,7 @@ file_list = [os.path.join(
     VID_FOLDER, item))]
 
 # Create tuples of two filenames (side view, front view)
-FILENAMES = [(file_list[i], file_list[i + 1]) for i in range(0,
+FILENAMES = [(file_list[i], file_list[i + 1]) for i in range(1,
                                                           len(file_list), 2)]
 
 FILES = len(FILENAMES)

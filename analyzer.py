@@ -1,5 +1,6 @@
-# Created to take in a single subjects squat profile and indicate whicch of
+# Created to take in a single subjects squat profile and indicate which of
 # the potential ailments they exhibit then querying recommendations
+
 # Created by Ben Randoing during 07/2023
 
 import numpy as np
@@ -8,35 +9,52 @@ from fpdf import FPDF
 from PIL import Image
 from scipy.integrate import trapz
 import pdfkit
-
-
+import os
+import pandas as pd
 
 class AnalyzeSquat():
 	######################################################################
 	######################## Init and Variable Declare ###################
 
-	def __init__(self, hip, knee, ankle, dev, devs, vv, deep, bottom_frame,
-	             base_frame):
+	def __init__(self, hip, knee, ankle, dev, devs, torso, shoulder, vv, deep,
+	             vv_min, bottom_frame, base_frame, file_side, file_font,
+	             foot, inout, label):
+		self.side = file_side
+		self.front = file_font
+		self.label = label
 		self.hip = hip
 		self.knee = knee
 		self.ankle = ankle
 		self.dev = dev
 		self.devs = devs
+		self.torso_min = [torso]
+		self.sho_min = [shoulder]
 		self.deep = deep
 		self.vv = vv
+		self.vv_min = vv_min
+		self.foot = foot
+		self.inout = inout
 		self.squat_profile = []
 		self.ailments = []
 		self.interventions = {}
 		self.bottom_frame = bottom_frame
 		self.base_frame = base_frame
 		self.asym_max = 5000
+		self.hip_data = {"auc": [], "conv": []}
+		self.knee_data = {"auc": [], "conv": []}
 		self.assymetric_score = {"hip_angle": 0.0, "knee_angle": 0.0,
 		                         "ankle_angle": 0.0, "deep_diff": 0.0,
 		                         "vert_offset": 0.0}
-		self.knee_score = {"left_knee": 0.0, "right_knee": 0.0}
+		self.knee_score = {"vv_score": 0.0}
 		self.core_score = {"deviation": 0.0, "arms": 0.0}
+		self.squat_score = {"deep_femur": 0.0}
 		self.final_scores = {"asymmetric_score": 0, "knee_stability_score":
-							 0, "core_strength_score": 0, "squat_score": 50}
+							 0, "core_strength_score": 0, "squat_score": 0}
+		self.output_class = {"vv": "None", "foot_out": "No",
+		                     "heel_raise": "No", "shift": "No",
+		                     "lean": "No", "arms_forward": "No"}
+
+
 		self.ailments_store = {
 			"not_deep_l": ["Did not reach a squat depth below horizontal L",
 			               "not_deep_l"],
@@ -67,19 +85,52 @@ class AnalyzeSquat():
 			                                          "the gastrocnemius, "
 			                                          "soleus, "
 			                                          "and Adductors."]}
+		self.prediction_roll_count = {"CalfL": 0,
+		                              "CalfR": 0,
+		                              "Quads": 0,
+		                              "Glutes": 0,
+		                              "AdductorsL": 0,
+		                              "AdductorsL": 0,
+		                              "Thoracic Spine": 0,
+		                              "Shoulder": 0}
 
 
 	######################################################################
 	######################## Asymmetry Feature Creation ##################
 
 	def check_deep(self):
+		# -10 to 10 is Green
+		# -15 TO 15  multiply by 2
+		# More outside multiply by 3
+
 		left = self.deep[0]
 		right = self.deep[1]
+		diff = right - left
 
-		diff = right - left # right positive convention
-		print(diff)
+		if diff > -10 or diff < 10:
+			self.assymetric_score["deep_diff"] = 50 + 0.8 * diff
+		else:
+			self.assymetric_score["deep_diff"] = 50 + diff
 
-		self.assymetric_score["deep_diff"] = diff
+
+		### Squat Score Contribution ###
+		mean = (left + right) / 2
+		print('mean: ' + str(mean))
+		if mean < 0:
+			self.squat_score["deep_femur"] = 100
+		elif mean < 10:
+			self.squat_score["deep_femur"] = 100 - 2 * mean
+		else:
+			self.squat_score["deep_femur"] = 100 - 3 * mean
+
+		### Score for Rolling Predictions ###
+		# Negative mean indicates there is a rightward lean and strong side
+		if mean < 0:
+			self.prediction_roll_count["AdductorsL"] += 1
+			self.prediction_roll_count["CalfR"] += 1
+
+
+
 
 	def check_hip(self):
 		hip_data = self.hip
@@ -90,9 +141,7 @@ class AnalyzeSquat():
 		hip_left_norm = np.array(hip_data["L"] / trapz(hip_data["L"]))
 
 		hip_auc = (right_hip_area - left_hip_area) / ((right_hip_area
-		                                                      +
-		                                                       left_hip_area) / 2)
-		print(hip_auc)
+		                                               + left_hip_area) / 2)
 
 
 		hip_conv = np.convolve(hip_right_norm, hip_left_norm, mode='full')
@@ -101,6 +150,9 @@ class AnalyzeSquat():
 		hip_conv_min = np.min(hip_conv)
 		hip_conv_asym = 1 - (hip_conv_max - hip_conv_min) / 0.02
 		print(hip_conv_asym)
+
+		self.hip_data["auc"] = hip_auc
+		self.hip_data["conv"] = list(hip_conv)
 
 		hip_asymmetry = (0.6 * hip_conv_asym + 0.4 * np.abs(hip_auc)) * \
 		                np.sign(hip_auc)
@@ -130,6 +182,9 @@ class AnalyzeSquat():
 		knee_conv_min = np.min(knee_conv)
 		knee_conv_asym = 1 - (knee_conv_max - knee_conv_min) / 0.02
 		print(knee_conv_asym)
+
+		self.knee_data["auc"] = knee_auc
+		self.knee_data["conv"] = list(knee_conv)
 
 		knee_asymmetry = (0.6 * knee_conv_asym + 0.4 * np.abs(knee_auc)) * \
 		                np.sign(knee_auc)
@@ -174,34 +229,36 @@ class AnalyzeSquat():
 	######################## Knee Stability Creation ##################
 	def check_VarValg(self):
 		knee_bend = self.vv
-		knee_bend_left_abs = [abs(elem) for elem in knee_bend["L"]]
-		knee_bend_left = trapz(knee_bend_left_abs)
-		knee_bend_right_abs = [abs(elem) for elem in knee_bend["R"]]
-		knee_bend_right = trapz(knee_bend_right_abs)
+		vv_min_sum = np.abs(self.vv_min[0]) + np.abs(self.vv_min[1])
+		sign = self.vv_min[1] - self.vv_min[0] # R - L
 
-		self.knee_score["left_knee"] = knee_bend_left
-		self.knee_score["right_knee"] = knee_bend_right
+		if vv_min_sum < 5:
+			self.knee_score["vv_score"] = (sign * 0.2 * vv_min_sum) / 2 + 50
+		elif vv_min_sum < 20:
+			self.knee_score["vv_score"] = (sign * 0.4 * vv_min_sum) / 2 + 50
+		elif vv_min_sum < 40:
+			self.knee_score["vv_score"] = (sign * 0.6 * vv_min_sum) / 2 + 50
+		else:
+			self.knee_score["vv_score"] = (sign * vv_min_sum) / 2 + 50
+
 
 	######################## Core Strength Creation ##################
-	def check_ForDev(self):
-		dev = self.dev
-		abs_dev = np.abs(dev)
-		dev_score = 100 - (trapz(abs_dev) / 200)
-		dev_sign = np.sign(np.mean(abs_dev))
-		print(dev_score)
-
-		self.core_score["deviation"] = dev_score * dev_sign
-		print(self.core_score["deviation"])
+	# def check_ForDev(self):
+	# 	dev_min = self.torso_min
+	# 	self.core_score["deviation"] = dev_score * dev_sign
+	# 	print(self.core_score["deviation"])
 
 	def check_ArmsFor(self):
-		dev = self.dev
-		abs_dev = np.abs(dev)
-		dev_score = 100 - (trapz(abs_dev) / 200)
-		dev_sign = np.sign(np.mean(abs_dev))
-		print(dev_score)
+		devs = self.devs
+		abs_devs = np.abs(devs)
+		# horz being worst
+		# TODO: Make max_devs not hard coded
+		devs_score = 100 - (trapz(abs_devs) / (len(devs) * 90)) * 100
+		devs_sign = np.sign(np.mean(abs_devs))
+		print(devs_score)
 
-		self.core_score["deviation"] = dev_score * dev_sign
-		print(self.core_score["deviation"])
+		self.core_score["arms"] = devs_score * devs_sign
+		print(self.core_score["arms"])
 	###################################################################
 	######################## Aggregate Sub scores #####################
 
@@ -211,31 +268,40 @@ class AnalyzeSquat():
 		self.check_knee()
 		self.check_ankle()
 		self.check_VarValg()
-		self.check_ForDev()
+		# self.check_ForDev()
+		self.check_ArmsFor()
 
 		# Asymmetry Score
 		for key, value in self.assymetric_score.items():
 			if key == "deep_diff":
-				continue
-			self.final_scores["asymmetric_score"] += value
-		self.final_scores["asymmetric_score"] /= 3
+				self.final_scores["asymmetric_score"] += value
 
 		# Knee Stability Score
 		for key, value in self.knee_score.items():
 			self.final_scores["knee_stability_score"] += value
-		self.final_scores["knee_stability_score"] /= 2
-		print(self.final_scores["knee_stability_score"])
 
-		# Core Stability Score
-		for key, value in self.core_score.items():
-			self.final_scores["core_strength_score"] += value
-		print(self.final_scores["core_strength_score"])
+		if self.final_scores["knee_stability_score"] < 0 or \
+		   self.final_scores["knee_stability_score"] > 100:
+			self.final_scores["knee_stability_score"] = 0
+
+		# # Core Stability Score
+		# for key, value in self.core_score.items():
+		# 	self.final_scores["core_strength_score"] += value
+		# print(self.final_scores["core_strength_score"])
+
+		# Squat Score
+		for key, value in self.squat_score.items():
+			self.final_scores["squat_score"] += value
+		self.final_scores["squat_score"] /= len(self.squat_score)
+		if self.final_scores["squat_score"] < 0:
+			self.final_scores["squat_score"] = 0
 
 
 	###################################################################
 	######################## Front Facing Function ####################
 
 	def test(self):
+		self.create_dataset()
 		self.create_bullet_list()
 		self.create_recs_dictionary()
 		self.agg_scores()
@@ -247,41 +313,12 @@ class AnalyzeSquat():
 			"knee_stability_score"], 100, 20, 40, 'KneeStability.png')
 		self.create_gauge_chart_sym(self.final_scores[
 			"asymmetric_score"], 100, 20, 40, 'Asymmetry.png')
+		self.add_row()
+
 
 
 	###################################################################
 	######################## Create Output Squat Profile ##############
-
-	# TODO: Delete if not using HTML
-	def generate_html(self, data):
-		with open('template.html', 'r', encoding='utf-8') as file:
-			html_template = file.read()
-
-		# Replace placeholders with data using string formatting
-		html_content = html_template.format(title=data['title'], name=data['name'], age=data['age'])
-		return html_content
-
-	# TODO: Delete if not using HTML
-	def create_pdf_from_data(self):
-		# Create original HTML
-		data = {
-			'title': 'My PDF',
-			'name': 'John Doe',
-			'age': 30
-		}
-		html_content = self.generate_html(data)
-
-		# Create output pdf of HTML
-		options = {
-			'page-size': 'A4',
-			'margin-top': '0mm',
-			'margin-right': '0mm',
-			'margin-bottom': '0mm',
-			'margin-left': '0mm',
-			'encoding': 'UTF-8',
-			'no-outline': None
-		}
-		pdfkit.from_string(html_content, 'output.pdf', options=options)
 
 	def create_gauge_chart(self, current_value, max_value, red_value,
 	                       green_value, filename):
@@ -290,8 +327,8 @@ class AnalyzeSquat():
 
 		# Define colors
 		red_color = '#FE4444'
-		yellow_color = '#4444FE'
-		green_color = '#44FE44'
+		yellow_color = '#FEF344'
+		green_color = '#00DD5A'
 
 		# Set the range for the gauge chart
 		ax.set_xlim(0, max_value)
@@ -327,8 +364,8 @@ class AnalyzeSquat():
 
 		# Define colors
 		red_color = '#FE4444'
-		yellow_color = '#4444FE'
-		green_color = '#44FE44'
+		yellow_color = '#FEF344'
+		green_color = '#00DD5A'
 
 		# Set the range for the gauge chart
 		ax.set_xlim(0, max_value)
@@ -399,14 +436,10 @@ class AnalyzeSquat():
 		Function to Generate PDF Report of Raw Graphs for Internal Use
 		'''
 		pdf_path = "profile.pdf"
-		background_image = "purple_bg.jpeg"
 
 		# Create a new PDF instance
 		pdf = FPDF()
 		pdf.add_page()
-
-		pdf.image(background_image, 0, 0, pdf.w,
-		          pdf.h)
 
 		pdf.set_text_color(255, 255, 255)
 		pdf.set_fill_color(48, 49, 57)
@@ -416,8 +449,8 @@ class AnalyzeSquat():
 
 		self.draw_rounded_rect(pdf, 8, 36, 194, 84, 10)
 		self.draw_rounded_rect(pdf, 8, 132, 94, 154, 10)
-		self.draw_rounded_rect(pdf, 108, 132, 94, 64, 10)
-		self.draw_rounded_rect(pdf, 108, 200, 94, 86, 10)
+		self.draw_rounded_rect(pdf, 108, 132, 94, 154, 10)
+		# self.draw_rounded_rect(pdf, 108, 200, 94, 86, 10)
 
 
 
@@ -430,12 +463,12 @@ class AnalyzeSquat():
 		self.draw_rounded_rect(pdf, 108, 80, 90, 36, 10)
 
 		self.draw_rounded_rect(pdf, 12, 136, 86, 146, 10)
-		self.draw_rounded_rect(pdf, 112, 136, 86, 56, 10)
+		self.draw_rounded_rect(pdf, 112, 136, 86, 146, 10)
 
 
 
 		# Set font and size for the title
-		pdf.set_font("Arial", "B", 16)
+		pdf.set_font("Arial", "B", 20)
 		pdf.cell(0, 10, "Overhead Squat FMS", 0, 1, "C")
 
 		pdf.set_font("Arial", "", 12)
@@ -451,9 +484,8 @@ class AnalyzeSquat():
 		image_pil.save(temp_filename)
 		image_pil_front.save(temp_filename_front)
 
-
-		pdf.image(temp_filename,  116, 208, 39)
-		pdf.image(temp_filename_front,  156, 208, 39)
+		pdf.image(temp_filename,  20, 147, 70)
+		pdf.image(temp_filename_front,  120, 147, 70)
 
 		pdf.image('Squat.png', 7, 60, 96, 10)
 		pdf.image('Core.png', 104, 60, 96, 10)
@@ -466,14 +498,15 @@ class AnalyzeSquat():
 
 		#Add Sub_labels
 		pdf.set_font("Arial", "B", 12)
-		pdf.set_xy(44, 38)
-		pdf.cell(0, 20, "Squat Score", ln=True)
-		pdf.set_xy(134, 78)
-		pdf.cell(0, 20, "Asymmetry Score", ln=True)
-		pdf.set_xy(42, 78)
-		pdf.cell(0, 20, "Knee Stability", ln=True)
-		pdf.set_xy(138, 38)
-		pdf.cell(0, 20, "Core Strength: 100", ln=True)
+		pdf.set_xy(36, 38)
+		pdf.cell(0, 20, "Squat Score: {:.0f}".format(self.final_scores[
+			                                              'squat_score']), ln=True)
+		pdf.set_xy(128, 78)
+		pdf.cell(0, 20, "Asymmetry Score: {:.0f}".format(self.final_scores['asymmetric_score']), ln=True)
+		pdf.set_xy(34, 78)
+		pdf.cell(0, 20, "Knee Stability : {:.0f}".format(self.final_scores['knee_stability_score']), ln=True)
+		pdf.set_xy(132, 38)
+		pdf.cell(0, 20, "Core Strength: {:.0f}".format(self.final_scores['core_strength_score']), ln=True)
 
 
 
@@ -482,7 +515,186 @@ class AnalyzeSquat():
 		pdf.set_font("Arial", "B", 14)
 		pdf.cell(0, 10, "Recommended Interventions", ln=True)
 
+
+		roll_rec = self.get_max_dict(self.prediction_roll_count)
+
+		# # Roll
+		# pdf.set_xy(16, 142)
+		# pdf.set_font("Arial", "B", 12)
+		# pdf.cell(0, 10, roll_rec, ln=True)
+		#
+		# # Strengthen
+		# pdf.set_xy(16, 162)
+		# pdf.set_font("Arial", "B", 12)
+		# pdf.cell(0, 10, "2. Test", ln=True)
+
+		# Page 2
 		pdf.add_page()
+
+		pdf.set_text_color(255, 255, 255)
+		pdf.set_fill_color(48, 49, 57)
+		pdf.rect(0, 0, pdf.w, pdf.h, 'F')  # 'F' means fill the rectangle
+
+		pdf.set_fill_color(23, 24, 32)
+
+		self.draw_rounded_rect(pdf, 8, 36, 194, 250, 10)
+
+		# Set font and size for the title
+		pdf.set_font("Arial", "B", 20)
+		pdf.cell(0, 10, "Muscle Target Regions", 0, 1, "C")
+
+		# Add text content
+		pdf.set_font("Arial", "B", 14)
+		pdf.cell(0, 20, "Darker shades of red indicate regions for potential muscle strengthening", ln=True)
+
+		pdf.image('bodymap-master/molemapper-randheat.png', 15, 75, 180, 170)
+
+		# Page 3
+		pdf.add_page()
+
+		pdf.set_text_color(255, 255, 255)
+		pdf.set_fill_color(48, 49, 57)
+		pdf.rect(0, 0, pdf.w, pdf.h, 'F')  # 'F' means fill the rectangle
+
+		pdf.set_fill_color(23, 24, 32)
+
+		self.draw_rounded_rect(pdf, 8, 36, 194, 246, 10)
+
+		pdf.set_fill_color(48, 49, 57)
+		self.draw_rounded_rect(pdf, 12, 40, 90, 56, 10)
+		self.draw_rounded_rect(pdf, 108, 40, 90, 56, 10)
+		self.draw_rounded_rect(pdf, 12, 100, 90, 56, 10)
+		self.draw_rounded_rect(pdf, 108, 100, 90, 56, 10)
+
+		self.draw_rounded_rect(pdf, 12, 160, 90, 56, 10)
+		self.draw_rounded_rect(pdf, 108, 160, 90, 56, 10)
+		self.draw_rounded_rect(pdf, 12, 220, 90, 56, 10)
+		self.draw_rounded_rect(pdf, 108, 220, 90, 56, 10)
+
+
+		# Set font and size for the title
+		pdf.set_font("Arial", "B", 20)
+		pdf.cell(0, 10, "FMS Classification", 0, 1, "C")
+
+		# self.output_class = {"vv": "None", "foot_out": "No",
+		#                      "heel_raise": "No", "shift": "No",
+		#                      "lean": "No", "arms_forward": "No"}
+
+		# Add Sub_labels
+		pdf.set_font("Arial", "B", 18)
+		pdf.set_xy(24, 38)
+		pdf.cell(0, 20, "Knee Varus or Valgus", ln=True)
+		pdf.set_xy(47, 60)
+		pdf.cell(0, 20, self.output_class["vv"], ln=True)
+
+		pdf.set_xy(126, 98)
+		pdf.cell(0, 20, "Asymmetric Shift", ln=True)
+		pdf.set_xy(146, 120)
+		pdf.cell(0, 20, self.output_class["shift"], ln=True)
+
+		pdf.set_xy(38, 98)
+		pdf.cell(0, 20, "Heel Raise", ln=True)
+		pdf.set_xy(50, 120)
+		pdf.cell(0, 20, self.output_class["heel_raise"], ln=True)
+
+		pdf.set_xy(130, 38)
+		pdf.cell(0, 20, "Foot Turn Out", ln=True)
+		pdf.set_xy(146, 60)
+		pdf.cell(0, 20, self.output_class["foot_out"], ln=True)
+
+		pdf.set_xy(34, 158)
+		pdf.cell(0, 20, "Forward Lean", ln=True)
+		pdf.set_xy(50, 180)
+		pdf.cell(0, 20, self.output_class["lean"], ln=True)
+
+		pdf.set_xy(125, 158)
+		pdf.cell(0, 20, "Arms Fall Forward", ln=True)
+		pdf.set_xy(146, 180)
+		pdf.cell(0, 20, self.output_class["arms_forward"], ln=True)
+
+		pdf.set_xy(34, 218)
+		pdf.cell(0, 20, "", ln=True)
+
+		pdf.set_xy(128, 218)
+		pdf.cell(0, 20, "", ln=True)
 
 		# Save the PDF file
 		pdf.output(pdf_path)
+
+	def get_max_dict(self, dictionary):
+		max_value = -1
+		max_key = None
+		for key, value in dictionary.items():
+			if value > max_value:
+				max_value = value
+				max_key = key
+		return max_key
+
+	def create_dataset(self):
+		directory = 'data/'
+		csv_filename = 'dataset.csv'
+
+		csv_path = os.path.join(directory, csv_filename)
+
+		if os.path.exists(csv_path):
+			print(f"The CSV file '{csv_filename}' already exists.")
+		else:
+			# Create the CSV file
+			empty_df = pd.DataFrame(columns=['Side Filename', 'Front Filename',
+			                                 'Frames', 'Hip Angle',
+			                                 'Knee Angle',
+			                                 'Ankle Angle', 'Deviation Angle',
+			                                 'Shoulder Deviation Angle',
+			                                 'Torso Min',
+			                                 'Shoulder Min',
+			                                 'Foot Angle', 'VarValg Angle',
+			                                 'VV Min',
+			                                 'Foot Inout Angle', 'Deep Femur',
+			                                 'Asymmetric Score',
+			                                 'Knee Stability',
+			                                 'Core Strength',
+			                                 'Hip Data',
+			                                 'Knee Data',
+			                                 'Qualitative Quality'])
+			empty_df.to_csv(csv_path, index=False)
+			print(f"Empty CSV file '{csv_filename}' has been created.")
+
+	def add_row(self):
+		print(self.torso_min, self.sho_min)
+		new_row_data = {'Side Filename': self.side,
+		                'Front Filename': self.front,
+		                'Frames': len(self.hip),
+		                'Hip Angle': [[self.hip]],
+		                'Knee Angle': [[self.knee]],
+		                'Ankle Angle': [[self.ankle]],
+		                'Deviation Angle': [[self.dev]],
+		                'Shoulder Deviation Angle': [[self.devs]],
+		                'Torso Min': [[self.torso_min]],
+		                'Shoulder Min': [[self.sho_min]],
+		                'Foot Angle': [[self.foot]],
+		                'VarValg Angle': [[self.vv]],
+		                'VV Min': [[self.vv_min]],
+		                'Foot Inout Angle': [[self.inout]],
+		                'Deep Femur': [self.deep],
+		                'Asymmetric Score': [self.assymetric_score],
+		                'Knee Stability': [self.knee_score],
+		                'Core Strength': [self.core_score],
+		                'Hip Data': [self.hip_data],
+		                'Knee Data': [self.knee_data],
+		                'Qualitative Quality': self.label}
+
+		new_row_df = pd.DataFrame(new_row_data, index=[0])
+
+		csv_path = 'data/dataset.csv'
+		existing_df = pd.read_csv(csv_path)
+		side_filenames = existing_df['Side Filename'].tolist()
+
+		print(existing_df)
+
+		if not self.side in side_filenames:
+			updated_data = pd.concat([existing_df, new_row_df],
+			                         ignore_index=True)
+			updated_data.to_csv(csv_path, index=False)
+			print("New row appended to the CSV.")
+		else:
+			print("Row already exists in the CSV.")
