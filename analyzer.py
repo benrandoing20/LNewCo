@@ -243,22 +243,18 @@ class AnalyzeSquat():
 
 
 	######################## Core Strength Creation ##################
-	# def check_ForDev(self):
-	# 	dev_min = self.torso_min
-	# 	self.core_score["deviation"] = dev_score * dev_sign
-	# 	print(self.core_score["deviation"])
+	def check_ForDev(self):
+		dev_min = abs(self.torso_min)
+		self.core_score["deviation"] = dev_min
+		print(self.core_score["deviation"])
+
 
 	def check_ArmsFor(self):
-		devs = self.devs
-		abs_devs = np.abs(devs)
-		# horz being worst
-		# TODO: Make max_devs not hard coded
-		devs_score = 100 - (trapz(abs_devs) / (len(devs) * 90)) * 100
-		devs_sign = np.sign(np.mean(abs_devs))
-		print(devs_score)
-
-		self.core_score["arms"] = devs_score * devs_sign
+		devs_min = abs(self.sho_min)
+		self.core_score["arms"] = devs_min
 		print(self.core_score["arms"])
+
+
 	###################################################################
 	######################## Aggregate Sub scores #####################
 
@@ -268,7 +264,7 @@ class AnalyzeSquat():
 		self.check_knee()
 		self.check_ankle()
 		self.check_VarValg()
-		# self.check_ForDev()
+		self.check_ForDev()
 		self.check_ArmsFor()
 
 		# Asymmetry Score
@@ -284,10 +280,11 @@ class AnalyzeSquat():
 		   self.final_scores["knee_stability_score"] > 100:
 			self.final_scores["knee_stability_score"] = 0
 
-		# # Core Stability Score
-		# for key, value in self.core_score.items():
-		# 	self.final_scores["core_strength_score"] += value
-		# print(self.final_scores["core_strength_score"])
+		# Core Stability Score
+		for key, value in self.core_score.items():
+			self.final_scores["core_strength_score"] += value
+		self.final_scores["core_strength_score"] /= len(self.core_score)
+		print(self.final_scores["core_strength_score"])
 
 		# Squat Score
 		for key, value in self.squat_score.items():

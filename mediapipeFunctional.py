@@ -14,6 +14,12 @@ import os
 import pandas as pd
 import csv
 
+#TODO: Core Strength Score
+# Auto Body Shading
+# Create Thresholds for Trainer Facing
+# Batch Output Organize
+# RL separate model
+
 
 
 def file_import(path):
@@ -82,7 +88,7 @@ def generate_frames_file():
 
 	filename_side = 'IMG_7038.mov'
 	filename_front = 'IMG_7039.mov'
-	qualitative_label = 'data/good'
+	qualitative_label = 'data'
 
 	cap = file_import(qualitative_label + '/' + filename_side)
 	cap2 = file_import(qualitative_label + '/' + filename_front)
