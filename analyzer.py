@@ -8,19 +8,23 @@ import matplotlib.pyplot as plt
 from fpdf import FPDF
 from PIL import Image
 from scipy.integrate import trapz
-import pdfkit
 import os
 import pandas as pd
+from bodymap.demo import *
+
+
 
 class AnalyzeSquat():
+
 	######################################################################
 	######################## Init and Variable Declare ###################
+	###################################################################
 
 	def __init__(self, hip, knee, ankle, dev, devs, torso, shoulder, vv, deep,
 	             vv_min, bottom_frame, base_frame, file_side, file_font,
 	             foot, inout, label):
-		self.side = file_side
-		self.front = file_font
+		self.side = file_side.split(".")[0]
+		self.front = file_font.split(".")[0]
 		self.label = label
 		self.hip = hip
 		self.knee = knee
@@ -53,56 +57,37 @@ class AnalyzeSquat():
 		self.output_class = {"vv": "None", "foot_out": "No",
 		                     "heel_raise": "No", "shift": "No",
 		                     "lean": "No", "arms_forward": "No"}
-
-
-		self.ailments_store = {
-			"not_deep_l": ["Did not reach a squat depth below horizontal L",
-			               "not_deep_l"],
-			"not_deep_r": ["Did not reach a squat depth below horizontal R",
-			               "not_deep_r"],
-			"depth_aym": ["Demonstrated asymmetry at squat base",
-			              "We recommend rolling out the weak side adductor "
-			              "and IT-Band as well as the strong side Biceps "
-			              "Femoris, Gastrocnemius, Soleus, and Piriformis. "
-			              "Please also consider strengthening exercises "
-			              "including weak side leg pulls and strong side "
-			              "leg pushes."],
-			"forward_lean": ["Forward lean of trunk", "We recommend rolling "
-			                                          "out"
-			                                          "the gastrocnemius, "
-			                                          "soleus, and hip "
-			                                          "flexor. Please also "
-			                                          "consider "
-			                                          "strengthening with "
-			                                          "floor cobras."],
-			"Varus": ["Demonstrated excess knee varus", "We recommend rolling "
-			                                          "out"
-			                                          "the gastrocnemius, "
-			                                          "soleus, and Biceps "
-			                                          "Femorus."],
-			"Valgus": ["Demonstrated excess knee valgus", "We recommend rolling "
-			                                          "out"
-			                                          "the gastrocnemius, "
-			                                          "soleus, "
-			                                          "and Adductors."]}
 		self.prediction_roll_count = {"CalfL": 0,
 		                              "CalfR": 0,
 		                              "Quads": 0,
 		                              "Glutes": 0,
 		                              "AdductorsL": 0,
-		                              "AdductorsL": 0,
+		                              "AdductorsR": 0,
 		                              "Thoracic Spine": 0,
 		                              "Shoulder": 0}
+		self.bodymap_names = {"CalfL": ["calf_left_back"],
+		                              "CalfR": ["calf_right_back"],
+		                              "Quads": ["thigh_right_front",
+		                                        "thigh_left_front"],
+		                              "Glutes": ["gluteal_left",
+		                                         "gluteal_right"],
+		                              "AdductorsL": ["thigh_left_front",
+		                                             "thigh_left_back"],
+		                              "AdductorsR": ["thigh_right_front",
+		                                             "thigh_right_back"],
+		                              "Thoracic Spine": ["midback_left",
+		                                                "midback_right"],
+		                              "Shoulder": ["shoulder_left_back",
+		                                           "shoulder_right_back",
+		                                           "shoulder_left_front",
+		                                           "shoulder_right_front"]}
 
 
 	######################################################################
 	######################## Asymmetry Feature Creation ##################
+	###################################################################
 
 	def check_deep(self):
-		# -10 to 10 is Green
-		# -15 TO 15  multiply by 2
-		# More outside multiply by 3
-
 		left = self.deep[0]
 		right = self.deep[1]
 		diff = right - left
@@ -111,7 +96,7 @@ class AnalyzeSquat():
 			self.assymetric_score["deep_diff"] = 50 + 0.8 * diff
 		else:
 			self.assymetric_score["deep_diff"] = 50 + diff
-
+			self.output_class["shift"] =  "Yes"
 
 		### Squat Score Contribution ###
 		mean = (left + right) / 2
@@ -126,11 +111,8 @@ class AnalyzeSquat():
 		### Score for Rolling Predictions ###
 		# Negative mean indicates there is a rightward lean and strong side
 		if mean < 0:
-			self.prediction_roll_count["AdductorsL"] += 1
-			self.prediction_roll_count["CalfR"] += 1
-
-
-
+			self.prediction_roll_count["AdductorsL"] += 0.1
+			self.prediction_roll_count["CalfR"] += 0.1
 
 	def check_hip(self):
 		hip_data = self.hip
@@ -143,13 +125,11 @@ class AnalyzeSquat():
 		hip_auc = (right_hip_area - left_hip_area) / ((right_hip_area
 		                                               + left_hip_area) / 2)
 
-
 		hip_conv = np.convolve(hip_right_norm, hip_left_norm, mode='full')
 
 		hip_conv_max = np.max(hip_conv)
 		hip_conv_min = np.min(hip_conv)
 		hip_conv_asym = 1 - (hip_conv_max - hip_conv_min) / 0.02
-		print(hip_conv_asym)
 
 		self.hip_data["auc"] = hip_auc
 		self.hip_data["conv"] = list(hip_conv)
@@ -157,10 +137,7 @@ class AnalyzeSquat():
 		hip_asymmetry = (0.6 * hip_conv_asym + 0.4 * np.abs(hip_auc)) * \
 		                np.sign(hip_auc)
 
-		print(hip_asymmetry)
-
 		self.assymetric_score["hip_angle"] = 50 + hip_asymmetry * 50
-		print(self.assymetric_score["hip_angle"])
 
 	def check_knee(self):
 		knee_data = self.knee
@@ -173,15 +150,12 @@ class AnalyzeSquat():
 		knee_auc = (right_knee_area - left_knee_area) / ((right_knee_area
 		                                                  + left_knee_area)
 		                                                 / 2)
-		print(knee_auc)
 
 		knee_conv = np.convolve(knee_right_norm, knee_left_norm, mode='full')
-
 
 		knee_conv_max = np.max(knee_conv)
 		knee_conv_min = np.min(knee_conv)
 		knee_conv_asym = 1 - (knee_conv_max - knee_conv_min) / 0.02
-		print(knee_conv_asym)
 
 		self.knee_data["auc"] = knee_auc
 		self.knee_data["conv"] = list(knee_conv)
@@ -189,11 +163,7 @@ class AnalyzeSquat():
 		knee_asymmetry = (0.6 * knee_conv_asym + 0.4 * np.abs(knee_auc)) * \
 		                np.sign(knee_auc)
 
-		print(knee_asymmetry)
-
 		self.assymetric_score["knee_angle"] = 50 + knee_asymmetry * 50
-
-		print(self.assymetric_score["knee_angle"])
 
 	def check_ankle(self):
 		ankle_data = self.ankle
@@ -205,7 +175,6 @@ class AnalyzeSquat():
 
 		ankle_auc = (right_ankle_area - left_ankle_area) / ((right_ankle_area
 		                                                  + left_ankle_area) / 2)
-		print(ankle_auc)
 
 		ankle_conv = np.convolve(ankle_right_norm, ankle_left_norm,
 		                         mode='full')
@@ -213,22 +182,31 @@ class AnalyzeSquat():
 		ankle_conv_max = np.max(ankle_conv)
 		ankle_conv_min = np.min(ankle_conv)
 		ankle_conv_asym = 1 - (ankle_conv_max - ankle_conv_min) / 0.02
-		print(ankle_conv_asym)
 
 		ankle_asymmetry = (0.6 * ankle_conv_asym + 0.4 * np.abs(ankle_auc)) * \
 		                 np.sign(ankle_auc)
 
-		print(ankle_asymmetry)
 		self.assymetric_score["ankle_angle"] = 50 + ankle_asymmetry * 50
 
-		print(self.assymetric_score["ankle_angle"])
+		### Analyze Foot In Out ###
+		maxOutR = max(self.inout["R"])
+		minInR = min(self.inout["R"])
+
+		maxOutL = max(self.inout["L"])
+		minInL = min(self.inout["L"])
+
+		if maxOutR > 5 or minInR < -5:
+			self.output_class["foot_out"] = "Yes"
+
+		if maxOutL > 5 or minInL < -5:
+			self.output_class["foot_out"] = "Yes"
 
 	# def check_Asym(self):
 	# 	# TODO: Hip y coord Asymmetry Value -> Bin -> Save in Asymmetry Outputs
 	#
+
 	######################## Knee Stability Creation ##################
 	def check_VarValg(self):
-		knee_bend = self.vv
 		vv_min_sum = np.abs(self.vv_min[0]) + np.abs(self.vv_min[1])
 		sign = self.vv_min[1] - self.vv_min[0] # R - L
 
@@ -241,19 +219,29 @@ class AnalyzeSquat():
 		else:
 			self.knee_score["vv_score"] = (sign * vv_min_sum) / 2 + 50
 
+		self.output_class["vv"] = str(vv_min_sum / 2)
+
 
 	######################## Core Strength Creation ##################
 	def check_ForDev(self):
-		dev_min = abs(self.torso_min)
-		self.core_score["deviation"] = dev_min
-		print(self.core_score["deviation"])
+		dev_min = abs(self.torso_min[0])
+		if dev_min < 20:
+			self.core_score["deviation"] = 100 - 0.5 * dev_min
+		else:
+			self.core_score["deviation"] = 100 - dev_min
 
+		if dev_min > 5:
+			self.output_class["lean"] = "Yes"
 
 	def check_ArmsFor(self):
-		devs_min = abs(self.sho_min)
-		self.core_score["arms"] = devs_min
-		print(self.core_score["arms"])
+		devs_min = abs(self.sho_min[0])
+		if devs_min < 20:
+			self.core_score["arms"] = 100 - 0.5 * devs_min
+		else:
+			self.core_score["arms"] = 100 - devs_min
 
+		if devs_min > 5:
+			self.output_class["arms_forward"] = "No"
 
 	###################################################################
 	######################## Aggregate Sub scores #####################
@@ -296,11 +284,10 @@ class AnalyzeSquat():
 
 	###################################################################
 	######################## Front Facing Function ####################
+	###################################################################
 
 	def test(self):
 		self.create_dataset()
-		self.create_bullet_list()
-		self.create_recs_dictionary()
 		self.agg_scores()
 		self.create_gauge_chart(self.final_scores[
 			"squat_score"], 100, 33, 67, 'Squat.png')
@@ -311,6 +298,7 @@ class AnalyzeSquat():
 		self.create_gauge_chart_sym(self.final_scores[
 			"asymmetric_score"], 100, 20, 40, 'Asymmetry.png')
 		self.add_row()
+		self.shade_body()
 
 
 
@@ -394,15 +382,6 @@ class AnalyzeSquat():
 		# Show the plot
 		plt.show()
 
-	def create_bullet_list(self):
-		for i, val in enumerate(self.squat_profile):
-			self.ailments.append(self.ailments_store[val][0])
-
-	def create_recs_dictionary(self):
-		for i, val in enumerate(self.squat_profile):
-			self.interventions[self.ailments_store[val][0]] = (
-				self.ailments_store[val][1])
-
 	def bullet_point_list(self, items, pdf):
 		pdf.set_font("Arial", "B", 10)
 		for item in items:
@@ -428,11 +407,39 @@ class AnalyzeSquat():
 		pdf.rect(x, y + r, w, h - 2 * r, 'F')  # Middle side (center part)
 		pdf.rect(x + r, y + h - r - 5, w - 2 * r, r + 5, 'F')  # Bottom side
 
-	def make_profile(self):
+	def shade_body(self):
+		# Take region names from the vocabulary definition file
+		with open("bodymap/maps/molemapper/molemapper.yaml") as f:
+			vocab_tree = yaml.load(f, Loader=yaml.SafeLoader)
+		labels = set(leaf_labels(vocab_tree))
+		print(labels, file=sys.stderr)
+
+		# Load the SVG as an XML tree
+		tree = ET.ElementTree(file="bodymap/maps/molemapper/molemapper.plain"
+		                           ".svg")
+		for element in tree.iter():
+			for key, value in self.bodymap_names.items():
+				if element.get("id") in value:
+					# Set the "style" attribute's fill value to a random heat color
+					intensity = self.prediction_roll_count[key]
+					style = ShapeStyle(
+						{"fill": rgb2hex(intensity2color(intensity))})
+					element.set("style", str(style))
+
+		# Serialize the XML back to an SVG file
+		tree.write("molemapper-randheat.svg")
+		print("Wrote", "robot-randheat.svg", file=sys.stderr)
+
+		# Convert SVG to PNG
+		cairosvg.svg2png(url="molemapper-randheat.svg",
+		                 write_to="molemapper-randheat.png")
+		print("Converted to PNG: molemapper-randheat.png", file=sys.stderr)
+
+	def make_profile(self, name):
 		'''
 		Function to Generate PDF Report of Raw Graphs for Internal Use
 		'''
-		pdf_path = "profile.pdf"
+		pdf_path = f"outputs/profile_{name}.pdf"
 
 		# Create a new PDF instance
 		pdf = FPDF()
@@ -544,7 +551,7 @@ class AnalyzeSquat():
 		pdf.set_font("Arial", "B", 14)
 		pdf.cell(0, 20, "Darker shades of red indicate regions for potential muscle strengthening", ln=True)
 
-		pdf.image('bodymap-master/molemapper-randheat.png', 15, 75, 180, 170)
+		pdf.image('molemapper-randheat.png', 15, 75, 180, 170)
 
 		# Page 3
 		pdf.add_page()
