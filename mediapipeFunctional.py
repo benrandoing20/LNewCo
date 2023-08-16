@@ -14,13 +14,8 @@ import os
 import pandas as pd
 import csv
 
-#TODO: Core Strength Score
+#TODO:
 # Auto Body Shading
-# Create Thresholds for Trainer Facing
-# Batch Output Organize
-# RL separate model
-
-
 
 def file_import(path):
 	'''
@@ -80,219 +75,219 @@ def generate_frames_file():
 	file_list = get_filenames()
 	print(file_list)
 
-	# for filenames in file_list:
+	for filenames in file_list:
 
-	# filename_side = filenames[0]
-	# filename_front = filenames[1]
-	# qualitative_label = filenames[2]
+		filename_side = filenames[0]
+		filename_front = filenames[1]
+		qualitative_label = filenames[2]
 
-	filename_side = 'IMG_7038.mov'
-	filename_front = 'IMG_7039.mov'
-	qualitative_label = 'data'
+	# filename_side = 'IMG_7038.mov'
+	# filename_front = 'IMG_7039.mov'
+	# qualitative_label = 'data'
 
-	cap = file_import(qualitative_label + '/' + filename_side)
-	cap2 = file_import(qualitative_label + '/' + filename_front)
+		cap = file_import(qualitative_label + '/' + filename_side)
+		cap2 = file_import(qualitative_label + '/' + filename_front)
 
-	# Initialize MediaPipe Drawing
-	mp_drawing = mp.solutions.drawing_utils
-	mp_drawing2 = mp.solutions.drawing_utils
+		# Initialize MediaPipe Drawing
+		mp_drawing = mp.solutions.drawing_utils
+		mp_drawing2 = mp.solutions.drawing_utils
 
-	# Initialize MediaPipe Pose model
-	mp_pose = mp.solutions.pose
-	mp_pose2 = mp.solutions.pose
-
-
-	# Computed with the Side View
-	start_frame = 0
-	end_frame = 0
-	hip_angle_data = {"L": [], "R": []}
-	knee_angle_data = {"L": [], "R": []}
-	ankle_angle_data = {"L": [], "R": []}
-	shoulder_deviation_angle_data = []
-	deviation_angle_data = []
-	foot_angle_data = {"L": [], "R": []}
-
-	threshold = 160
-	hip_angle_min = threshold
+		# Initialize MediaPipe Pose model
+		mp_pose = mp.solutions.pose
+		mp_pose2 = mp.solutions.pose
 
 
+		# Computed with the Side View
+		start_frame = 0
+		end_frame = 0
+		hip_angle_data = {"L": [], "R": []}
+		knee_angle_data = {"L": [], "R": []}
+		ankle_angle_data = {"L": [], "R": []}
+		shoulder_deviation_angle_data = []
+		deviation_angle_data = []
+		foot_angle_data = {"L": [], "R": []}
 
-	# Computed with the Front View
-	shin_varvalg_angle_data = {"L": [], "R": []}
-	foot_inout_data = {"L": [], "R": []}
+		threshold = 160
+		hip_angle_min = threshold
 
 
-	global bottom_frame, angle_femur_left, angle_femur_right, torso_min, \
-		shoulder_min
-	angle_femur_left = None
-	angle_femur_right = None
-	bottom_frame = None
-	torso_min = None
-	shoulder_min = None
 
-	with mp_pose.Pose(min_detection_confidence=0.5,
-	                  min_tracking_confidence=0.5) as pose:
-		while cap.isOpened():
-			try:
-				ret, frame = cap.read()
+		# Computed with the Front View
+		shin_varvalg_angle_data = {"L": [], "R": []}
+		foot_inout_data = {"L": [], "R": []}
 
-				# Recolor image to RGB
-				image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-				image.flags.writeable = False
 
-				# Make detection
-				results = pose.process(image)
+		global bottom_frame, angle_femur_left, angle_femur_right, torso_min, \
+			shoulder_min
+		angle_femur_left = None
+		angle_femur_right = None
+		bottom_frame = None
+		torso_min = None
+		shoulder_min = None
 
-				# Recolor back to BGR
-				image.flags.writeable = True
-				image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-
+		with mp_pose.Pose(min_detection_confidence=0.5,
+		                  min_tracking_confidence=0.5) as pose:
+			while cap.isOpened():
 				try:
-					landmarks = results.pose_landmarks.landmark
+					ret, frame = cap.read()
 
-					# Calculate angles
-					hip_angle = get_hip_angle(landmarks, mp_pose)
-					knee_angle = get_knee_angle(landmarks, mp_pose)
-					ankle_angle = get_ankle_angle(landmarks, mp_pose)
-					deviation_angle = get_hipshin_angle(landmarks, mp_pose)
-					shoulder_deviation_angle = get_shoulder_angle(landmarks,
-					                                          mp_pose)
-					foot_angle = get_foot_angle(landmarks, mp_pose)
-					start_frame, end_frame = start_stop(landmarks, mp_pose,
-					                                    cap, start_frame,
-					                                    end_frame, threshold)
+					# Recolor image to RGB
+					image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+					image.flags.writeable = False
+
+					# Make detection
+					results = pose.process(image)
+
+					# Recolor back to BGR
+					image.flags.writeable = True
+					image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+
+					try:
+						landmarks = results.pose_landmarks.landmark
+
+						# Calculate angles
+						hip_angle = get_hip_angle(landmarks, mp_pose)
+						knee_angle = get_knee_angle(landmarks, mp_pose)
+						ankle_angle = get_ankle_angle(landmarks, mp_pose)
+						deviation_angle = get_hipshin_angle(landmarks, mp_pose)
+						shoulder_deviation_angle = get_shoulder_angle(landmarks,
+						                                          mp_pose)
+						foot_angle = get_foot_angle(landmarks, mp_pose)
+						start_frame, end_frame = start_stop(landmarks, mp_pose,
+						                                    cap, start_frame,
+						                                    end_frame, threshold)
 
 
-					# Crop and store hip angle data within the squat range
-					if start_frame != 0 and end_frame == 0:
-						hip_angle_data["L"].append(hip_angle[0])
-						hip_angle_data["R"].append(hip_angle[1])
+						# Crop and store hip angle data within the squat range
+						if start_frame != 0 and end_frame == 0:
+							hip_angle_data["L"].append(hip_angle[0])
+							hip_angle_data["R"].append(hip_angle[1])
 
-						knee_angle_data["L"].append(knee_angle[0])
-						knee_angle_data["R"].append(knee_angle[1])
+							knee_angle_data["L"].append(knee_angle[0])
+							knee_angle_data["R"].append(knee_angle[1])
 
-						ankle_angle_data["L"].append(ankle_angle[0])
-						ankle_angle_data["R"].append(ankle_angle[1])
+							ankle_angle_data["L"].append(ankle_angle[0])
+							ankle_angle_data["R"].append(ankle_angle[1])
 
-						deviation_angle_data.append(deviation_angle)
+							deviation_angle_data.append(deviation_angle)
 
-						shoulder_deviation_angle_data.append(shoulder_deviation_angle)
+							shoulder_deviation_angle_data.append(shoulder_deviation_angle)
 
-						foot_angle_data["L"].append(foot_angle[0])
-						foot_angle_data["R"].append(foot_angle[1])
+							foot_angle_data["L"].append(foot_angle[0])
+							foot_angle_data["R"].append(foot_angle[1])
 
-						if hip_angle[0] < hip_angle_min:
-							hip_angle_min = hip_angle[0]
+							if hip_angle[0] < hip_angle_min:
+								hip_angle_min = hip_angle[0]
 
-							bottom_frame = frame
+								bottom_frame = frame
 
-							# Draw on Bottom Frame
-							mp_drawing.draw_landmarks(bottom_frame,
-							                          results.pose_landmarks,
-							                          mp_pose.POSE_CONNECTIONS,
-							                          mp_drawing.DrawingSpec(
-								                          color=(245, 117, 66),
-								                          thickness=2,
-								                          circle_radius=2),
-							                          mp_drawing.DrawingSpec(
-								                          color=(245, 66, 230),
-								                          thickness=2,
-								                          circle_radius=2)
-							                          )
+								# Draw on Bottom Frame
+								mp_drawing.draw_landmarks(bottom_frame,
+								                          results.pose_landmarks,
+								                          mp_pose.POSE_CONNECTIONS,
+								                          mp_drawing.DrawingSpec(
+									                          color=(245, 117, 66),
+									                          thickness=2,
+									                          circle_radius=2),
+								                          mp_drawing.DrawingSpec(
+									                          color=(245, 66, 230),
+									                          thickness=2,
+									                          circle_radius=2)
+								                          )
 
-							angle_femur_left, angle_femur_right = get_deepfemur_angle(
-								landmarks,
-								mp_pose)
-							torso_min = deviation_angle
-							shoulder_min = shoulder_deviation_angle
+								angle_femur_left, angle_femur_right = get_deepfemur_angle(
+									landmarks,
+									mp_pose)
+								torso_min = deviation_angle
+								shoulder_min = shoulder_deviation_angle
 
-							squat_depth = np.round((angle_femur_left +
-							               angle_femur_right) / 2)
+								squat_depth = np.round((angle_femur_left +
+								               angle_femur_right) / 2)
 
-							print(squat_depth)
+								print(squat_depth)
 
-							# Visualize angle of hip_angle at the hip
-							cv2.putText(bottom_frame, "Depth: ",
-							            tuple(
-							            np.multiply([landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x,
-	                                    landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y],
-				                        [1250, 1920]).astype(int)),
-							            cv2.FONT_HERSHEY_SIMPLEX, 2, (245, 66, 230), 2,
-							            cv2.LINE_AA)
+								# Visualize angle of hip_angle at the hip
+								cv2.putText(bottom_frame, "Depth: ",
+								            tuple(
+								            np.multiply([landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x,
+		                                    landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y],
+					                        [1250, 1920]).astype(int)),
+								            cv2.FONT_HERSHEY_SIMPLEX, 2, (245, 66, 230), 2,
+								            cv2.LINE_AA)
 
-							# Visualize angle of hip_angle at the hip
-							cv2.putText(bottom_frame, str(squat_depth),
-							            tuple(
-								            np.multiply([landmarks[
-									                         mp_pose.PoseLandmark.LEFT_HIP.value].x,
-								                         landmarks[
-									                         mp_pose.PoseLandmark.LEFT_HIP.value].y],
-								                        [1250, 2000]).astype(
-									            int)),
-							            cv2.FONT_HERSHEY_SIMPLEX, 2,
-							            (245, 66, 230), 2,
-							            cv2.LINE_AA)
+								# Visualize angle of hip_angle at the hip
+								cv2.putText(bottom_frame, str(squat_depth),
+								            tuple(
+									            np.multiply([landmarks[
+										                         mp_pose.PoseLandmark.LEFT_HIP.value].x,
+									                         landmarks[
+										                         mp_pose.PoseLandmark.LEFT_HIP.value].y],
+									                        [1250, 2000]).astype(
+										            int)),
+								            cv2.FONT_HERSHEY_SIMPLEX, 2,
+								            (245, 66, 230), 2,
+								            cv2.LINE_AA)
+
+					except Exception as e:
+						traceback.print_exc()
+						pass
+
+					# Render detections
+					mp_drawing.draw_landmarks(image, results.pose_landmarks,
+					                          mp_pose.POSE_CONNECTIONS,
+					                          mp_drawing.DrawingSpec(
+						                          color=(245, 117, 66),
+						                          thickness=2,
+						                          circle_radius=2),
+					                          mp_drawing.DrawingSpec(
+						                          color=(245, 66, 230),
+						                          thickness=2,
+						                          circle_radius=2)
+					                          )
+
+
+					# Display the image
+					cv2.imshow('Squat Video', image)
+					if cv2.waitKey(1) & 0xFF == ord('q'):
+						break
 
 				except Exception as e:
 					traceback.print_exc()
-					pass
-
-				# Render detections
-				mp_drawing.draw_landmarks(image, results.pose_landmarks,
-				                          mp_pose.POSE_CONNECTIONS,
-				                          mp_drawing.DrawingSpec(
-					                          color=(245, 117, 66),
-					                          thickness=2,
-					                          circle_radius=2),
-				                          mp_drawing.DrawingSpec(
-					                          color=(245, 66, 230),
-					                          thickness=2,
-					                          circle_radius=2)
-				                          )
-
-
-				# Display the image
-				cv2.imshow('Squat Video', image)
-				if cv2.waitKey(1) & 0xFF == ord('q'):
 					break
 
-			except Exception as e:
-				traceback.print_exc()
-				break
+
+			cap.release()
+			cv2.destroyAllWindows()
+
+			make_plot(hip_angle_data, "Hip")
+			make_plot(knee_angle_data, "Knee")
+			make_plot(ankle_angle_data, "Ankle")
+			make_plot(deviation_angle_data, "Deviation")
+			make_plot(shoulder_deviation_angle_data, "Shoulder Deviation")
+			make_plot(foot_angle_data, "Foot")
+
+			bottom_front, knee_vv_min = front_view(cap2, mp_drawing2, mp_pose2,
+			                               start_frame,
+			                        end_frame,
+			           shin_varvalg_angle_data, foot_inout_data)
+
+			bottom_frame = cv2.cvtColor(bottom_frame, cv2.COLOR_BGR2RGB)
+			bottom_front = cv2.cvtColor(bottom_front, cv2.COLOR_BGR2RGB)
+
+			make_handout(angle_femur_left, angle_femur_right, bottom_frame)
+
+			print(torso_min)
+			print(shoulder_min)
 
 
-		cap.release()
-		cv2.destroyAllWindows()
-
-		make_plot(hip_angle_data, "Hip")
-		make_plot(knee_angle_data, "Knee")
-		make_plot(ankle_angle_data, "Ankle")
-		make_plot(deviation_angle_data, "Deviation")
-		make_plot(shoulder_deviation_angle_data, "Shoulder Deviation")
-		make_plot(foot_angle_data, "Foot")
-
-		bottom_front, knee_vv_min = front_view(cap2, mp_drawing2, mp_pose2,
-		                               start_frame,
-		                        end_frame,
-		           shin_varvalg_angle_data, foot_inout_data)
-
-		bottom_frame = cv2.cvtColor(bottom_frame, cv2.COLOR_BGR2RGB)
-		bottom_front = cv2.cvtColor(bottom_front, cv2.COLOR_BGR2RGB)
-
-		make_handout(angle_femur_left, angle_femur_right, bottom_frame)
-
-		print(torso_min)
-		print(shoulder_min)
-
-
-		analyze_data(hip_angle_data, knee_angle_data, ankle_angle_data,
-		             deviation_angle_data, shoulder_deviation_angle_data,
-		             torso_min, shoulder_min,
-		             shin_varvalg_angle_data,
-		             (angle_femur_left, angle_femur_right),
-		             knee_vv_min, bottom_frame, bottom_front, filename_side,
-		             filename_front, foot_angle_data, foot_inout_data,
-		             qualitative_label)
+			analyze_data(hip_angle_data, knee_angle_data, ankle_angle_data,
+			             deviation_angle_data, shoulder_deviation_angle_data,
+			             torso_min, shoulder_min,
+			             shin_varvalg_angle_data,
+			             (angle_femur_left, angle_femur_right),
+			             knee_vv_min, bottom_frame, bottom_front, filename_side,
+			             filename_front, foot_angle_data, foot_inout_data,
+			             qualitative_label)
 
 
 def front_view(cap2, mp_drawing2, mp_pose2, start_frame, end_frame,
@@ -411,7 +406,7 @@ def analyze_data(hip_angle, knee_angle, ankle_angle, dev_angle, dev_shoulder,
 
 	# Check for ailments
 	analyzer.test()
-	analyzer.make_profile()
+	analyzer.make_profile(filename_side.split(".")[0])
 
 
 
