@@ -96,7 +96,8 @@ class AnalyzeSquat():
 			self.assymetric_score["deep_diff"] = 50 + 0.8 * diff
 		else:
 			self.assymetric_score["deep_diff"] = 50 + diff
-			self.output_class["shift"] =  "Yes"
+			self.output_class["shift"] = "Yes"
+			self.prediction_roll_count["Quads"] += 0.3
 
 		### Squat Score Contribution ###
 		mean = (left + right) / 2
@@ -110,7 +111,7 @@ class AnalyzeSquat():
 
 		### Score for Rolling Predictions ###
 		# Negative mean indicates there is a rightward lean and strong side
-		if mean < 0:
+		if diff < 0:
 			self.prediction_roll_count["AdductorsL"] += 0.1
 			self.prediction_roll_count["CalfR"] += 0.1
 
@@ -201,10 +202,6 @@ class AnalyzeSquat():
 		if maxOutL > 5 or minInL < -5:
 			self.output_class["foot_out"] = "Yes"
 
-	# def check_Asym(self):
-	# 	# TODO: Hip y coord Asymmetry Value -> Bin -> Save in Asymmetry Outputs
-	#
-
 	######################## Knee Stability Creation ##################
 	def check_VarValg(self):
 		vv_min_sum = np.abs(self.vv_min[0]) + np.abs(self.vv_min[1])
@@ -219,8 +216,17 @@ class AnalyzeSquat():
 		else:
 			self.knee_score["vv_score"] = (sign * vv_min_sum) / 2 + 50
 
-		self.output_class["vv"] = str(vv_min_sum / 2)
+		self.output_class["vv"] = str(int(vv_min_sum / 2))
 
+		if vv_min_sum > 0:
+			self.prediction_roll_count["CalfL"] += 0.1
+			self.prediction_roll_count["CalfR"] += 0.1
+			self.prediction_roll_count["Quads"] += 0.1
+		else:
+			self.prediction_roll_count["CalfL"] += 0.1
+			self.prediction_roll_count["CalfR"] += 0.1
+			self.prediction_roll_count["AdductorsR"] += 0.1
+			self.prediction_roll_count["AdductorsL"] += 0.1
 
 	######################## Core Strength Creation ##################
 	def check_ForDev(self):
@@ -232,6 +238,9 @@ class AnalyzeSquat():
 
 		if dev_min > 5:
 			self.output_class["lean"] = "Yes"
+			self.prediction_roll_count["CalfL"] += 0.1
+			self.prediction_roll_count["CalfR"] += 0.1
+			self.prediction_roll_count["Thoracic Spine"] += 0.1
 
 	def check_ArmsFor(self):
 		devs_min = abs(self.sho_min[0])
@@ -242,6 +251,8 @@ class AnalyzeSquat():
 
 		if devs_min > 5:
 			self.output_class["arms_forward"] = "No"
+			self.prediction_roll_count["Shoulder"] += 0.1
+			self.prediction_roll_count["Thoracic Spine"] += 0.1
 
 	###################################################################
 	######################## Aggregate Sub scores #####################
