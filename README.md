@@ -1,5 +1,8 @@
 # LNewCo
 #### Functional Physical Assessment of a Deep Squat Summer 2023
+#### 1. Data Labeling
+#### 2. EDA
+#### 3. Squat Profile Creation
 
 <figure>
     <img src="Example%20Images/temp_image.jpg"
@@ -164,7 +167,7 @@ The current pipeline leverages heuristic based models that wer developed
 based on insights gathered in conversations with Trainers and through EDA. 
 
 In order to develop a more robust model, ML and RL approaches should be 
-leveraged to verify the scoring. Potential future wok may include 
+leveraged to verify the scoring. Potential future work may include 
 collecting a dataset of labeled squat data from trainers as the basis for 
 a supervised learning model is combined with the current heuristic. 
 Reinforcement Learning approaches may include creating a reward model based 
