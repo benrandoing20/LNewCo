@@ -29,6 +29,10 @@ height="500">
 
 ## Project Introduction:
 
+**Note:** This project was developed during a summer 2023 internship at LNewCo, 
+a longevity startup focused on improving human healthspan and physical fitness 
+through data-driven assessments and personalized interventions.
+
 During the summer of 2023, LNewCo was interested in growing and automating 
 their functional movement assessment tests. The existing exam includes 
 grip strength, VO2 max, and single leg stance tests. The trainer team expressed
